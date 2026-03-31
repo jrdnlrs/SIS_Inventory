@@ -1,0 +1,62 @@
+{
+  "_comment": "Passwords are SHA-256 hashed. Use auth.js hashPassword() or an online SHA-256 tool to generate new hashes.",
+  "_howto": "To add a user: copy any entry, change username, set password_hash to SHA-256 of their password, set role to 'admin' or 'employee'.",
+  "users": [
+    {
+      "username": "JSM001",
+      "display_name": "Admin Jay",
+      "password_hash": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+      "role": "admin",
+      "active": true
+    },
+    {
+      "username": "EJL002",
+      "display_name": "Elijah Lirios",
+      "password_hash": "1084285cbe681fb7c2e2a6409320ded4da8b6d5a2d180179a4c2befaf546f157",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "FCC003",
+      "display_name": "Milo Cruspero",
+      "password_hash": "994ebb732c477129b4bf9df9572775ca68d01abd8dd5110cc617d08e65f26ec7",
+      "role": "admin",
+      "active": true
+    },
+    {
+      "username": "KMO004",
+      "display_name": "Kristel Olaco",
+      "password_hash": "e4278a25efdda54567945c3be8555d650fd9bbcb872f737b0c92a2bae98d0ecb",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "JTM005",
+      "display_name": "Jadd",
+      "password_hash": "6a4cbbbe989b658c2bfd610a57ed725c2be7827986d33c8078180fb2c34f81fc",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "AJDG006",
+      "display_name": "Aj ",
+      "password_hash": "de66be1eca9b08cbfe04e4b0986feac08cb3ddf1a06c717eae97a6947e387aee",
+      "role": "admin",
+      "active": true
+    },
+    {
+      "username": "PB008",
+      "display_name": "Pamela Anne",
+      "password_hash": "e1001eb091b83c9188e5db14a036342bdeb7c92909a53ad0da8c8d090a7ce7e4",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "JPM007",
+      "display_name": "Sir JP",
+      "password_hash": "c9b255cf6dc2fd9546fd391f1f08150dfa67a63eddcc7b39b98c82f172439fa4",
+      "role": "admin",
+      "active": true
+    }
+  ]
+}

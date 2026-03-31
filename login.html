@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockDesk — Login</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:          #0f0f11;
+    --surface:     #18181c;
+    --surface2:    #212126;
+    --border:      #2e2e36;
+    --accent:      #c8f135;
+    --accent-dim:  #9cb82a;
+    --text:        #e8e8ec;
+    --text-muted:  #7a7a8a;
+    --text-dim:    #4a4a5a;
+    --red:         #ff5f5f;
+    --orange:      #ffaa40;
+    --green:       #5fdf8f;
+    --radius:      10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* Grid background — matches app */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(200,241,53,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(200,241,53,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Subtle radial glow behind the card */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px; height: 500px;
+    background: radial-gradient(ellipse, rgba(200,241,53,0.05) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .login-wrap {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 420px;
+    padding: 24px;
+    animation: cardIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.97); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* ── LOGO ── */
+  .login-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 36px;
+  }
+
+  .logo-icon {
+    width: 42px; height: 42px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+  }
+
+  .logo-icon svg { width: 22px; height: 22px; }
+
+  .login-logo h1 {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .login-logo span {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 400;
+    display: block;
+    font-family: 'DM Mono', monospace;
+    margin-top: 1px;
+  }
+
+  /* ── CARD ── */
+  .login-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 32px;
+  }
+
+  .login-card h2 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .login-card h2 .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+  }
+
+  .login-subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 28px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ── BANNER ── */
+  .banner {
+    display: none;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 20px;
+    line-height: 1.5;
+    animation: bannerIn 0.25s ease-out;
+  }
+
+  @keyframes bannerIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .banner.show { display: flex; }
+
+  .banner.error {
+    background: rgba(255,95,95,0.08);
+    border: 1px solid rgba(255,95,95,0.3);
+    color: var(--red);
+  }
+
+  .banner.warn {
+    background: rgba(255,170,64,0.08);
+    border: 1px solid rgba(255,170,64,0.3);
+    color: var(--orange);
+  }
+
+  .banner.info {
+    background: rgba(200,241,53,0.06);
+    border: 1px solid rgba(200,241,53,0.2);
+    color: var(--accent);
+  }
+
+  .banner-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+
+  /* ── FORM ── */
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .form-group label {
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+  }
+
+  .input-wrap {
+    position: relative;
+  }
+
+  .input-wrap input {
+    width: 100%;
+    padding: 11px 40px 11px 13px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .input-wrap input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(200,241,53,0.08);
+  }
+
+  .input-wrap input.error-field {
+    border-color: var(--red);
+    box-shadow: 0 0 0 3px rgba(255,95,95,0.08);
+  }
+
+  .input-wrap input::placeholder { color: var(--text-dim); }
+
+  /* Toggle password visibility */
+  .toggle-pw {
+    position: absolute;
+    right: 12px; top: 50%;
+    transform: translateY(-50%);
+    background: none; border: none;
+    cursor: pointer; color: var(--text-muted);
+    padding: 4px;
+    line-height: 0;
+    transition: color 0.15s;
+  }
+
+  .toggle-pw:hover { color: var(--text); }
+
+  /* ── SUBMIT ── */
+  .btn-login {
+    width: 100%;
+    padding: 12px;
+    background: var(--accent);
+    color: #0f0f11;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s, opacity 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .btn-login:hover:not(:disabled) { background: #d4f55a; transform: translateY(-1px); }
+  .btn-login:active:not(:disabled) { transform: translateY(0); }
+  .btn-login:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Spinner */
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(0,0,0,0.2);
+    border-top-color: #0f0f11;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: none;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── LOCKOUT COUNTDOWN ── */
+  .lockout-timer {
+    display: none;
+    text-align: center;
+    margin-top: 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .lockout-timer strong {
+    color: var(--orange);
+    font-size: 18px;
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  /* ── FOOTER ── */
+  .login-footer {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    color: var(--text-dim);
+  }
+
+  /* ── ATTEMPTS METER ── */
+  .attempts-meter {
+    display: none;
+    gap: 4px;
+    margin-top: 8px;
+  }
+
+  .attempts-meter.show { display: flex; }
+
+  .attempt-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background 0.2s;
+  }
+
+  .attempt-dot.used { background: var(--red); }
+</style>
+</head>
+<body>
+
+<div class="login-wrap">
+
+  <!-- Logo -->
+  <div class="login-logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#0f0f11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="3" width="20" height="18" rx="2"/>
+        <path d="M8 3v18M16 3v18M2 9h20M2 15h20"/>
+      </svg>
+    </div>
+    <div>
+      <h1>Supreme InfoTech Solutions</h1>
+      <span>Office &amp; Supply Inventory</span>
+    </div>
+  </div>
+
+  <!-- Card -->
+  <div class="login-card">
+    <h2><span class="dot"></span> Secure Access</h2>
+    <p class="login-subtitle">Authorized personnel only</p>
+
+    <!-- Status banners -->
+    <div class="banner info" id="bannerTimeout">
+      <span class="banner-icon">⏱</span>
+      <span>Your session expired due to inactivity. Please sign in again.</span>
+    </div>
+    <div class="banner info" id="bannerLogout">
+      <span class="banner-icon">✓</span>
+      <span>You have been signed out successfully.</span>
+    </div>
+    <div class="banner error" id="bannerError">
+      <span class="banner-icon">✗</span>
+      <span id="bannerErrorText">Invalid username or password.</span>
+    </div>
+    <div class="banner warn" id="bannerLocked">
+      <span class="banner-icon">⊘</span>
+      <span id="bannerLockedText">Account locked after too many failed attempts.</span>
+    </div>
+
+    <!-- Form -->
+    <form id="loginForm" onsubmit="handleLogin(event)" autocomplete="off" novalidate>
+      <div class="form-group">
+        <label for="inputUser">Username</label>
+        <div class="input-wrap">
+          <input type="text" id="inputUser" placeholder="Enter username"
+                 autocomplete="username" spellcheck="false" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="inputPass">Password</label>
+        <div class="input-wrap">
+          <input type="password" id="inputPass" placeholder="Enter password"
+                 autocomplete="current-password" id="inputPass" />
+          <button type="button" class="toggle-pw" onclick="togglePw()" title="Show/hide password" tabindex="-1">
+            <svg id="eyeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Attempt dots (shown after first failure) -->
+      <div class="attempts-meter" id="attemptsMeter">
+        <div class="attempt-dot" id="dot1"></div>
+        <div class="attempt-dot" id="dot2"></div>
+        <div class="attempt-dot" id="dot3"></div>
+        <div class="attempt-dot" id="dot4"></div>
+        <div class="attempt-dot" id="dot5"></div>
+      </div>
+
+      <button type="submit" class="btn-login" id="loginBtn">
+        <div class="spinner" id="spinner"></div>
+        <span id="loginBtnText">Sign In</span>
+      </button>
+    </form>
+
+    <!-- Lockout countdown -->
+    <div class="lockout-timer" id="lockoutTimer">
+      <strong id="lockoutCountdown">15:00</strong>
+      Account locked — try again in <span id="lockoutMinText">15 minutes</span>
+    </div>
+  </div>
+
+  <div class="login-footer">
+    StockDesk · Supreme InfoTech Solutions
+  </div>
+
+</div>
+
+<script src="auth.js"></script>
+<script>
+  // ── ON LOAD — check URL reason param ─────
+  (function checkReason() {
+    const params = new URLSearchParams(window.location.search);
+    const reason = params.get('reason');
+    if (reason === 'timeout') show('bannerTimeout');
+    if (reason === 'logout')  show('bannerLogout');
+
+    // If already logged in, redirect straight to app
+    const session = AUTH.getSession();
+    if (session) {
+      // Verify session isn't stale (requireAuth handles this)
+      window.location.href = 'index.html';
+    }
+  })();
+
+  function show(id) {
+    document.getElementById(id).classList.add('show');
+  }
+
+  function hideAllBanners() {
+    ['bannerTimeout','bannerLogout','bannerError','bannerLocked'].forEach(id => {
+      document.getElementById(id).classList.remove('show');
+    });
+  }
+
+  // ── PASSWORD TOGGLE ───────────────────
+  function togglePw() {
+    const inp  = document.getElementById('inputPass');
+    const icon = document.getElementById('eyeIcon');
+    if (inp.type === 'password') {
+      inp.type = 'text';
+      icon.innerHTML = `
+        <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
+        <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
+        <line x1="1" y1="1" x2="23" y2="23"/>`;
+    } else {
+      inp.type = 'password';
+      icon.innerHTML = `
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+        <circle cx="12" cy="12" r="3"/>`;
+    }
+  }
+
+  // ── ATTEMPT DOTS ──────────────────────
+  let _failCount = 0;
+  function updateDots(used) {
+    _failCount = used;
+    const meter = document.getElementById('attemptsMeter');
+    if (used > 0) meter.classList.add('show');
+    for (let i = 1; i <= 5; i++) {
+      document.getElementById('dot' + i).classList.toggle('used', i <= used);
+    }
+  }
+
+  // ── LOCKOUT COUNTDOWN TIMER ───────────
+  let _countdownInterval = null;
+
+  function startLockoutCountdown(minutes) {
+    document.getElementById('lockoutTimer').style.display = 'block';
+    document.getElementById('loginBtn').disabled = true;
+    document.getElementById('lockoutMinText').textContent =
+      minutes === 1 ? '1 minute' : minutes + ' minutes';
+
+    let remaining = minutes * 60;
+
+    function tick() {
+      const m = String(Math.floor(remaining / 60)).padStart(2, '0');
+      const s = String(remaining % 60).padStart(2, '0');
+      document.getElementById('lockoutCountdown').textContent = `${m}:${s}`;
+      if (remaining <= 0) {
+        clearInterval(_countdownInterval);
+        document.getElementById('lockoutTimer').style.display = 'none';
+        document.getElementById('loginBtn').disabled = false;
+        hideAllBanners();
+        updateDots(0);
+      }
+      remaining--;
+    }
+
+    tick();
+    _countdownInterval = setInterval(tick, 1000);
+  }
+
+  // ── HANDLE LOGIN ──────────────────────
+  async function handleLogin(e) {
+    e.preventDefault();
+    hideAllBanners();
+
+    const username = document.getElementById('inputUser').value.trim();
+    const password = document.getElementById('inputPass').value;
+    const btn      = document.getElementById('loginBtn');
+    const spinner  = document.getElementById('spinner');
+    const btnText  = document.getElementById('loginBtnText');
+
+    // Clear error styling
+    document.getElementById('inputUser').classList.remove('error-field');
+    document.getElementById('inputPass').classList.remove('error-field');
+
+    if (!username || !password) {
+      if (!username) document.getElementById('inputUser').classList.add('error-field');
+      if (!password) document.getElementById('inputPass').classList.add('error-field');
+      document.getElementById('bannerErrorText').textContent = 'Please enter both username and password.';
+      show('bannerError');
+      return;
+    }
+
+    // Show loading state
+    btn.disabled    = true;
+    spinner.style.display = 'block';
+    btnText.textContent   = 'Signing in…';
+
+    const result = await AUTH.login(username, password);
+
+    spinner.style.display = 'none';
+    btnText.textContent   = 'Sign In';
+    btn.disabled          = false;
+
+    if (result.ok) {
+      btnText.textContent = '✓ Access granted';
+      btn.style.background = 'var(--green)';
+      setTimeout(() => { window.location.href = 'index.html'; }, 600);
+      return;
+    }
+
+    if (result.reason === 'locked') {
+      document.getElementById('bannerLockedText').textContent =
+        `Account locked. Too many failed attempts. Try again in ${result.minutes} minute${result.minutes !== 1 ? 's' : ''}.`;
+      show('bannerLocked');
+      startLockoutCountdown(result.minutes);
+      updateDots(5);
+      return;
+    }
+
+    // Invalid credentials
+    const used = 5 - (result.attemptsLeft ?? 5);
+    updateDots(used);
+    document.getElementById('inputPass').classList.add('error-field');
+
+    if (result.attemptsLeft <= 2 && result.attemptsLeft > 0) {
+      document.getElementById('bannerErrorText').textContent =
+        `Invalid credentials. ${result.attemptsLeft} attempt${result.attemptsLeft !== 1 ? 's' : ''} remaining before lockout.`;
+    } else {
+      document.getElementById('bannerErrorText').textContent = 'Invalid username or password.';
+    }
+    show('bannerError');
+
+    // Shake the card
+    const card = document.querySelector('.login-card');
+    card.style.animation = 'none';
+    card.style.transform = 'translateX(6px)';
+    setTimeout(() => {
+      card.style.transition = 'transform 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97)';
+      card.style.transform  = 'translateX(0)';
+      setTimeout(() => { card.style.transition = ''; }, 400);
+    }, 50);
+
+    // Clear password field on failure
+    document.getElementById('inputPass').value = '';
+    document.getElementById('inputPass').focus();
+  }
+
+  // Allow Enter key to submit
+  document.getElementById('inputPass').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleLogin(e);
+  });
+</script>
+</body>
+</html>

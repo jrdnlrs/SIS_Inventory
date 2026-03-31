@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockDesk — Inventory System</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <div id="loadingBar" style="display:none;position:fixed;top:0;left:0;right:0;height:3px;background:var(--accent);z-index:9999;animation:loadingPulse 1s ease-in-out infinite;"></div>
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0f0f11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="18" rx="2"/>
+          <path d="M8 3v18M16 3v18M2 9h20M2 15h20"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Supreme InfoTech Solutions</h1>
+        <span>Office &amp; Supply Inventory</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <!-- Hidden file input for import -->
+      <input type="file" id="importFileInput" accept=".xlsx,.xls" style="display:none" onchange="onImportFileChosen(event)" />
+      <button id="btn-import" class="btn btn-ghost" onclick="triggerImport()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Import Excel
+      </button>
+      <button id="btn-export" class="btn btn-ghost" onclick="exportExcel()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Export Excel
+      </button>
+      <button id="btn-add-item" class="btn btn-primary" onclick="openModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Item
+      </button>
+      <div style="width:1px;height:28px;background:var(--border);margin:0 2px;align-self:center;"></div>
+      <div id="userChip" style="display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:12px;color:var(--text-muted);">
+        <span id="userChipName" style="color:var(--text)"></span>
+        <span id="userChipRole" style="font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:rgba(200,241,53,0.1);color:var(--accent);border:1px solid rgba(200,241,53,0.2);"></span>
+      </div>
+      <button class="btn btn-ghost" onclick="AUTH.logout()" title="Sign out" style="padding:8px 12px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Sign Out
+      </button>
+    </div>
+  </header>
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat-card" id="statCardTotal">
+      <div class="stat-label" id="statLabelTotal">Total Items</div>
+      <div class="stat-val" id="stat-total">0</div>
+    </div>
+    <div class="stat-card good">
+      <div class="stat-label">Categories</div>
+      <div class="stat-val good" id="stat-instock">0</div>
+    </div>
+  </div>
+
+  <!-- SCANNER BAR -->
+  <div class="scanner-bar">
+    <div class="scanner-indicator"></div>
+    <div class="scanner-label">BARCODE SCANNER</div>
+    <input class="scanner-input" id="scannerInput" placeholder="Scan or type serial number, then press Enter…" autocomplete="off" />
+    <div class="scanner-status ready" id="scannerStatus">READY</div>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="searchInput" placeholder="Search by name, barcode, category…" oninput="renderTable()" />
+    </div>
+    <select id="categoryFilter" onchange="renderTable()">
+      <option value="">All Categories</option>
+    </select>
+  </div>
+
+  <!-- BULK ACTION BAR -->
+  <div class="bulk-bar" id="bulkBar">
+    <div class="bulk-bar-info">
+      <span id="bulkCount">0</span> item<span id="bulkPlural">s</span> selected
+    </div>
+    <div class="bulk-bar-actions">
+      <select id="bulkStatusSelect">
+        <option value="">— Change Status —</option>
+        <option value="In Use">In Use</option>
+        <option value="Spare">Spare</option>
+        <option value="Defective">Defective</option>
+        <option value="For Repair">For Repair</option>
+      </select>
+      <button class="btn btn-ghost" onclick="bulkChangeStatus()">Apply Status</button>
+      <button class="btn btn-danger" onclick="bulkDelete()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        Delete Selected
+      </button>
+      <button class="btn btn-ghost" onclick="clearSelection()">✕ Clear</button>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="col-check">
+            <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" title="Select all" />
+          </th>
+          <th onclick="sortBy('uniqueId', this)">Unique ID <span class="sort-arrow">↕</span></th>
+          <th onclick="sortBy('serial', this)">Serial Number <span class="sort-arrow">↕</span></th>
+          <th onclick="sortBy('brand', this)">Brand <span class="sort-arrow">↕</span></th>
+          <th onclick="sortBy('model', this)">Model <span class="sort-arrow">↕</span></th>
+          <th onclick="sortBy('category', this)">Category <span class="sort-arrow">↕</span></th>
+          <th onclick="sortBy('location', this)">Location <span class="sort-arrow">↕</span></th>
+          <th onclick="sortBy('status', this)">Status <span class="sort-arrow">↕</span></th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- ADD/EDIT MODAL -->
+<div class="overlay" id="overlay" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <h2><span class="dot"></span> <span id="modalTitle">Add Item</span></h2>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Category</label>
+        <input id="fCategory" placeholder="e.g. Paper, Ink, Tech…" list="catList" oninput="onCategoryChange()" />
+        <datalist id="catList"></datalist>
+      </div>
+      <div class="form-group">
+        <label>Unique ID</label>
+        <input id="fUniqueId" placeholder="Auto-generated" readonly style="opacity:0.6;cursor:default;" />
+      </div>
+      <div class="form-group">
+        <label>Brand</label>
+        <input id="fBrand" placeholder="e.g. Sony, Logitech, Dell…" />
+      </div>
+      <div class="form-group">
+        <label>Model</label>
+        <input id="fModel" placeholder="e.g. ZV-E10, MX Master 3…" />
+      </div>
+      <div class="form-group form-full" id="fSerialGroup">
+        <label>Serial Number</label>
+        <input id="fSerial" placeholder="e.g. SN-ABC123XYZ" />
+      </div>
+      <!-- Quantity — only shown when adding, hidden on edit -->
+      <div class="form-group form-full" id="fQuantityGroup">
+        <label>
+          Quantity
+          <span style="font-weight:400;color:var(--text-muted);font-size:11px;margin-left:8px;">
+            Enter more than 1 to batch-add multiple items (e.g. 200 cameras)
+          </span>
+        </label>
+        <input id="fQuantity" type="number" min="1" max="500" value="1" oninput="onQuantityChange()" />
+        <div id="fQuantityHint" style="display:none;margin-top:6px;font-size:11px;font-family:'DM Mono',monospace;color:var(--accent);"></div>
+      </div>
+      <div class="form-group">
+        <label>Location / Cabinet</label>
+        <select id="fLocation">
+          <option value="">— Select location —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="fStatus">
+          <option value="">— Select status —</option>
+        </select>
+      </div>
+      <div class="form-group form-full">
+        <label>Notes</label>
+        <textarea id="fNotes" placeholder="Optional notes…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="saveBtn" onclick="saveItem()">Save Item</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT PREVIEW MODAL -->
+<div class="overlay" id="importPreviewOverlay" onclick="closeImportPreviewOutside(event)">
+  <div class="modal import-preview-modal">
+    <h2><span class="dot"></span> Import Preview</h2>
+    <p style="margin:-8px 0 14px;font-size:13px;color:var(--text-muted);">
+      Review the rows below before importing. Only columns present in your file will be filled.
+    </p>
+
+    <!-- Summary badges -->
+    <div id="importPreviewSummary" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
+
+    <!-- Overwrite toggle (shown only when duplicates exist) -->
+    <div id="importOverwriteRow" style="
+      display:none;align-items:center;gap:10px;
+      padding:10px 14px;border-radius:8px;margin-bottom:14px;
+      background:color-mix(in srgb,var(--yellow,#fbbf24) 8%,transparent);
+      border:1px solid color-mix(in srgb,var(--yellow,#fbbf24) 30%,transparent);
+      font-size:13px;">
+      <input type="checkbox" id="importOverwriteToggle" style="width:15px;height:15px;cursor:pointer;" />
+      <label for="importOverwriteToggle" style="cursor:pointer;">
+        Overwrite existing items with matching Unique ID / Barcode
+        <span style="color:var(--text-muted);font-size:11px;display:block;margin-top:2px;">
+          Only the columns present in the file will be updated — other fields are preserved.
+        </span>
+      </label>
+    </div>
+
+    <!-- Preview table -->
+    <div class="import-table-wrap">
+      <table class="import-table">
+        <thead id="importPreviewThead"></thead>
+        <tbody id="importPreviewTbody"></tbody>
+      </table>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeImportPreview()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmImport()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px"><polyline points="20 6 9 17 4 12"/></svg>
+        Confirm Import
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="config.js"></script>
+<script src="auth.js"></script>
+<script src="app.js"></script>
+<script src="scanner.js"></script>
+</body>
+</html>
