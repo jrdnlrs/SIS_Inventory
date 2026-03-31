@@ -116,9 +116,7 @@
     const uniqueId = (typeof generateUniqueId === 'function') ? generateUniqueId(category) : '';
     const brand    = session.brand || '';
     const itemCount = session.log.filter(l => l.status === 'added').length + 1;
-    const model    = session.model
-      ? `${session.model} #${itemCount}`
-      : `${category} #${itemCount}`;
+    const model    = session.model || '';
 
     const newItem = {
       id:       uid(),
@@ -160,10 +158,10 @@
         <div class="form-grid">
           <div class="form-group">
             <label>Category <span style="color:var(--red)">*</span></label>
-            <input id="ssCategory" placeholder="e.g. Mouse, Monitor…" list="catList" oninput="refreshSessionUniqueIdPreview()" />
+            <input id="ssCategory" placeholder="e.g. Laptop" list="catList" oninput="refreshSessionUniqueIdPreview()" />
           </div>
           <div class="form-group">
-            <label>Location / Cabinet</label>
+            <label>Location</label>
             <select id="ssLocation">
               <option value="">— Select location —</option>
             </select>
@@ -176,11 +174,11 @@
           </div>
           <div class="form-group">
             <label>Brand</label>
-            <input id="ssBrand" placeholder="e.g. Sony, Logitech…" />
+            <input id="ssBrand" placeholder="e.g. Asus" />
           </div>
           <div class="form-group">
             <label>Model</label>
-            <input id="ssModel" placeholder="e.g. ZV-E10, MX Master 3…" />
+            <input id="ssModel" placeholder="e.g. TUF Gaming A16" />
           </div>
           <div class="form-group form-full">
             <label>Notes</label>
@@ -248,11 +246,6 @@
       Scan Session`;
     btn.onclick = openScanSession;
     bar.appendChild(btn);
-
-    // Hide scan session for non-admin users
-    if (typeof currentRole !== 'undefined' && currentRole !== 'admin') {
-      btn.style.display = 'none';
-    }
   }
 
 
