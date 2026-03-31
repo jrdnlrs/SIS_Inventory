@@ -1,7 +1,7 @@
 /* ─────────────────────────────────────────
    StockDesk — app.js
-   Core inventory logic: state, CRUD, render,
-   sort, export, import, modal, toast, keyboard shortcuts
+   Data: Supabase (Postgres)
+   Auth: role-based (admin / employee)
    ───────────────────────────────────────── */
 
 // ── SUPABASE CLIENT ────────────────────────
@@ -75,7 +75,6 @@ async function dbUpdate(item) {
 }
 
 async function dbUpdateMany(itemsArr) {
-  // Supabase doesn't batch PATCH — run in parallel
   await Promise.all(itemsArr.map(item =>
     fetch(`${DB_URL}?id=eq.${item.id}`, {
       method: 'PATCH',
@@ -103,10 +102,10 @@ async function dbDeleteMany(ids) {
 }
 
 // ── STATE ──────────────────────────────────
-let items      = JSON.parse(localStorage.getItem('stockdesk_items') || '[]');
-let editId     = null;
-let sortField  = 'name';
-let sortAsc    = true;
+let items       = JSON.parse(localStorage.getItem('stockdesk_items') || '[]');
+let editId      = null;
+let sortField   = 'name';
+let sortAsc     = true;
 let selectedIds = new Set();
 let currentRole = 'employee';
 
@@ -114,14 +113,15 @@ function saveCache() {
   localStorage.setItem('stockdesk_items', JSON.stringify(items));
 }
 
+// keep save() as alias so import/export helpers still work
+function save() { saveCache(); }
+
 function setLoading(on) {
   const bar = document.getElementById('loadingBar');
   if (bar) bar.style.display = on ? 'block' : 'none';
 }
 
 // ── CATEGORY → ID PREFIX MAP ───────────────
-// ✏️  EDIT ONLY THIS to add/remove/rename categories.
-// Format: 'Category Name': 'SIS-XXX'  (keep prefix unique, 3 letters recommended)
 const CATEGORY_PREFIX = {
   'Laptop':         'SIS-LAP',
   'Laptop Charger': 'SIS-ACC',
@@ -135,19 +135,12 @@ const CATEGORY_PREFIX = {
   'Appliances':     'SIS-APP',
 };
 
-// Auto-derived from CATEGORY_PREFIX — do not edit manually
 const PRESET_CATEGORIES = Object.keys(CATEGORY_PREFIX).sort();
 
-// ── STATUS OPTIONS ─────────────────────────
-const STATUS_OPTIONS = ['In Use', 'Defective', 'Spare', 'For Repair'];
-
-// ── LOCATION OPTIONS ───────────────────────
-// ✏️  EDIT HERE to add/remove/rename locations.
+// ── STATUS & LOCATION OPTIONS ──────────────
+const STATUS_OPTIONS   = ['In Use', 'Defective', 'Spare', 'For Repair'];
 const LOCATION_OPTIONS = ['Second Floor Office', 'Third Floor Office', 'Stock Room'];
 
-/**
- * Returns the next auto-incremented unique ID for a given category.
- */
 function generateUniqueId(category, excludeId = null) {
   const cat    = (category || '').trim();
   const prefix = CATEGORY_PREFIX[cat] || 'SIS-' + cat.slice(0, 3).toUpperCase().replace(/[^A-Z]/g, 'X');
@@ -164,33 +157,32 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
-// Keep save() as an alias so existing callers (import, etc.) still work
-// for the local cache — Supabase writes happen separately in each action.
-function save() { saveCache(); }
-
 // ── ITEM STATUS BADGE ──────────────────────
 function itemStatusBadge(status) {
   const map = {
-    'In Use':    'badge-ok',
-    'Spare':     'badge-spare',
-    'Defective': 'badge-out',
-    'For Repair':'badge-low',
+    'In Use':     'badge-ok',
+    'Spare':      'badge-spare',
+    'Defective':  'badge-out',
+    'For Repair': 'badge-low',
   };
   if (!status) return '<span style="color:var(--text-muted);font-size:11px">—</span>';
   return `<span class="badge ${map[status] || 'badge-ok'}">${status}</span>`;
 }
+
+// ── RENDER TABLE ───────────────────────────
 function renderTable() {
-  const q       = document.getElementById('searchInput').value.toLowerCase();
-  const cat     = document.getElementById('categoryFilter').value;
+  const q   = document.getElementById('searchInput').value.toLowerCase();
+  const cat = document.getElementById('categoryFilter').value;
 
   let filtered = items.filter(item => {
-    const matchQ   = !q || (item.brand || '').toLowerCase().includes(q)
-                         || (item.model || '').toLowerCase().includes(q)
-                         || (item.barcode || '').includes(q)
-                         || (item.category || '').toLowerCase().includes(q)
-                         || (item.serial   || '').toLowerCase().includes(q)
-                         || (item.location || '').toLowerCase().includes(q)
-                         || (item.uniqueId || '').toLowerCase().includes(q);
+    const matchQ = !q
+      || (item.brand    || '').toLowerCase().includes(q)
+      || (item.model    || '').toLowerCase().includes(q)
+      || (item.barcode  || '').includes(q)
+      || (item.category || '').toLowerCase().includes(q)
+      || (item.serial   || '').toLowerCase().includes(q)
+      || (item.location || '').toLowerCase().includes(q)
+      || (item.uniqueId || '').toLowerCase().includes(q);
     const matchCat = !cat || (item.category || '') === cat;
     return matchQ && matchCat;
   });
@@ -213,12 +205,12 @@ function renderTable() {
             <rect x="3" y="3" width="18" height="18" rx="2"/>
             <path d="M9 9h6M9 12h6M9 15h4"/>
           </svg>
-          <p>No items found.</p>
+          <p>${items.length === 0 ? 'No items yet. Start scanning or add an item.' : 'No items match your search.'}</p>
         </div>
       </td></tr>`;
   } else {
     tbody.innerHTML = filtered.map(item => `
-      <tr id="row-${item.id}" class="${selectedIds.has(item.id) ? 'row-selected' : ''}">
+      <tr id="row-${item.id}" class="${selectedIds.has(item.id) ? 'row-selected' : ''}" onclick="toggleRowSelect(event, '${item.id}')">
         ${currentRole === 'admin' ? `
         <td class="col-check" onclick="event.stopPropagation()">
           <input type="checkbox" class="row-check" data-id="${item.id}"
@@ -243,38 +235,29 @@ function renderTable() {
     `).join('');
   }
 
-  // ── Stats ─────────────────────────────────
-  const usedCats   = [...new Set(items.map(i => i.category).filter(Boolean))];
+  // Stats
+  const usedCats  = [...new Set(items.map(i => i.category).filter(Boolean))];
   const isFiltered = cat || q;
-
   const totalLabel = document.getElementById('statLabelTotal');
   document.getElementById('stat-total').textContent   = filtered.length;
   document.getElementById('stat-instock').textContent = usedCats.length;
   if (totalLabel) totalLabel.textContent = isFiltered ? 'Filtered Items' : 'Total Items';
 
-
-  // ── Rebuild category filter dropdown ──────
+  // Category filter
   const cats = [...new Set([...PRESET_CATEGORIES, ...usedCats])].sort();
   const cf   = document.getElementById('categoryFilter');
   const prev = cf.value;
   cf.innerHTML = '<option value="">All Categories</option>'
     + cats.map(c => `<option value="${c}"${c === prev ? ' selected' : ''}>${c}</option>`).join('');
 
-  // ── Rebuild datalist for modal ─────────────
   document.getElementById('catList').innerHTML =
     cats.map(c => `<option value="${c}">`).join('');
 }
 
-
-
 // ── SORT ───────────────────────────────────
 function sortBy(field, thEl) {
-  if (sortField === field) {
-    sortAsc = !sortAsc;
-  } else {
-    sortField = field;
-    sortAsc   = true;
-  }
+  if (sortField === field) sortAsc = !sortAsc;
+  else { sortField = field; sortAsc = true; }
   document.querySelectorAll('th').forEach(th => th.classList.remove('sorted'));
   if (thEl) thEl.classList.add('sorted');
   renderTable();
@@ -282,35 +265,24 @@ function sortBy(field, thEl) {
 
 // ── MULTI-SELECT ───────────────────────────
 function toggleRowSelect(event, id) {
-  // Don't trigger if clicking a button or checkbox directly
   if (event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT') return;
-  if (selectedIds.has(id)) {
-    selectedIds.delete(id);
-  } else {
-    selectedIds.add(id);
-  }
+  if (selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
   updateSelectionUI();
 }
 
 function onRowCheckChange(checkbox, id) {
-  if (checkbox.checked) {
-    selectedIds.add(id);
-  } else {
-    selectedIds.delete(id);
-  }
+  if (checkbox.checked) selectedIds.add(id);
+  else selectedIds.delete(id);
   updateSelectionUI();
 }
 
 function toggleSelectAll(checkbox) {
   const allCheckboxes = document.querySelectorAll('.row-check');
-  // Only operate on visible rows — avoids ghost-selecting items hidden by search/filter
   allCheckboxes.forEach(cb => {
     const id = cb.dataset.id;
-    if (checkbox.checked) {
-      selectedIds.add(id);
-    } else {
-      selectedIds.delete(id);
-    }
+    if (checkbox.checked) selectedIds.add(id);
+    else selectedIds.delete(id);
     cb.checked = checkbox.checked;
   });
   document.querySelectorAll('#tableBody tr').forEach(row => {
@@ -322,11 +294,10 @@ function toggleSelectAll(checkbox) {
 function updateSelectionUI() {
   const count   = selectedIds.size;
   const bulkBar = document.getElementById('bulkBar');
-  document.getElementById('bulkCount').textContent   = count;
-  document.getElementById('bulkPlural').textContent  = count === 1 ? '' : 's';
+  document.getElementById('bulkCount').textContent  = count;
+  document.getElementById('bulkPlural').textContent = count === 1 ? '' : 's';
   bulkBar.classList.toggle('bulk-bar-visible', count > 0);
 
-  // Sync row highlight classes
   document.querySelectorAll('#tableBody tr').forEach(row => {
     const id = row.id.replace('row-', '');
     row.classList.toggle('row-selected', selectedIds.has(id));
@@ -334,8 +305,7 @@ function updateSelectionUI() {
     if (cb) cb.checked = selectedIds.has(id);
   });
 
-  // Sync select-all checkbox state
-  const allCbs  = document.querySelectorAll('.row-check');
+  const allCbs    = document.querySelectorAll('.row-check');
   const selectAll = document.getElementById('selectAll');
   if (selectAll && allCbs.length > 0) {
     selectAll.indeterminate = count > 0 && count < allCbs.length;
@@ -358,8 +328,7 @@ async function bulkDelete() {
   if (!confirm(`Delete ${count} selected item${count > 1 ? 's' : ''}? This cannot be undone.`)) return;
   setLoading(true);
   try {
-    const ids = [...selectedIds];
-    await dbDeleteMany(ids);
+    await dbDeleteMany([...selectedIds]);
     items = items.filter(i => !selectedIds.has(i.id));
     selectedIds.clear();
     saveCache();
@@ -413,29 +382,26 @@ function openModal(id = null) {
   document.getElementById('modalTitle').textContent = isEdit ? 'Edit Item' : 'Add Item';
   const item = isEdit ? (items.find(i => i.id === id) || {}) : {};
 
-  document.getElementById('fBrand').value     = item.brand    || '';
-  document.getElementById('fModel').value     = item.model    || '';
-  document.getElementById('fCategory').value  = item.category || '';
-  document.getElementById('fSerial').value    = item.serial   || '';
-  document.getElementById('fLocation').value  = item.location || '';
-  document.getElementById('fStatus').value    = item.status   || '';
-  document.getElementById('fNotes').value     = item.notes    || '';
+  document.getElementById('fBrand').value    = item.brand    || '';
+  document.getElementById('fModel').value    = item.model    || '';
+  document.getElementById('fCategory').value = item.category || '';
+  document.getElementById('fSerial').value   = item.serial   || '';
+  document.getElementById('fLocation').value = item.location || '';
+  document.getElementById('fStatus').value   = item.status   || '';
+  document.getElementById('fNotes').value    = item.notes    || '';
 
-  // Quantity — only visible when adding
   document.getElementById('fQuantityGroup').style.display = isEdit ? 'none' : '';
-  document.getElementById('fSerialGroup').style.display   = isEdit ? '' : '';
+  document.getElementById('fSerialGroup').style.display   = '';
   document.getElementById('fQuantity').value              = 1;
   document.getElementById('fQuantityHint').style.display  = 'none';
   document.getElementById('saveBtn').textContent          = isEdit ? 'Save Item' : 'Add Item';
 
-  // Serial hidden when adding multiple (quantity > 1 hides it dynamically via onQuantityChange)
   if (!isEdit) document.getElementById('fSerial').value = '';
 
   const uniqueIdField = document.getElementById('fUniqueId');
   if (isEdit && item.uniqueId) {
     uniqueIdField.value = item.uniqueId;
-  } else if (!isEdit && item.category) {
-    // editing existing — category pre-filled
+  } else if (item.category) {
     uniqueIdField.value = generateUniqueId(item.category, id);
   } else {
     uniqueIdField.value = '';
@@ -448,19 +414,19 @@ function openModal(id = null) {
 
 function onQuantityChange() {
   if (editId) return;
-  const qty     = parseInt(document.getElementById('fQuantity').value, 10) || 1;
-  const brand   = document.getElementById('fBrand').value.trim();
-  const model   = document.getElementById('fModel').value.trim();
-  const cat     = document.getElementById('fCategory').value.trim();
-  const hint    = document.getElementById('fQuantityHint');
-  const serial  = document.getElementById('fSerialGroup');
+  const qty    = parseInt(document.getElementById('fQuantity').value, 10) || 1;
+  const brand  = document.getElementById('fBrand').value.trim();
+  const model  = document.getElementById('fModel').value.trim();
+  const cat    = document.getElementById('fCategory').value.trim();
+  const hint   = document.getElementById('fQuantityHint');
+  const serial = document.getElementById('fSerialGroup');
   const saveBtn = document.getElementById('saveBtn');
 
   if (qty > 1) {
     serial.style.display = 'none';
     const prefix = [brand, model].filter(Boolean).join(' ') || cat || 'Item';
     hint.style.display  = 'block';
-    hint.textContent    = `Will create ${qty} items: "${prefix} #1" → "${prefix} #${qty}" — serial numbers can be added later via Scan Session`;
+    hint.textContent    = `Will create ${qty} items: "${prefix} #1" → "${prefix} #${qty}" — serial numbers can be added later`;
     saveBtn.textContent = `Add ${qty} Items`;
   } else {
     serial.style.display = '';
@@ -510,7 +476,7 @@ async function saveItem() {
   setLoading(true);
   try {
     if (editId) {
-      const idx = items.findIndex(i => i.id === editId);
+      const idx      = items.findIndex(i => i.id === editId);
       if (idx === -1) { toast('Item not found.', 'error'); closeModal(); return; }
       const existing = items[idx];
       const data = {
@@ -535,18 +501,21 @@ async function saveItem() {
       toast('Item added.', 'success');
 
     } else {
+      // ── Batch add — model gets "#1", "#2"… and unique IDs increment correctly ──
       const batch = [];
       for (let i = 1; i <= qty; i++) {
-        batch.push({
-          id: uid(), ...base, brand,
+        const newItem = {
+          id:       uid(),
+          ...base,
+          brand,
           model:    model ? `${model} #${i}` : `#${i}`,
           serial:   '',
           uniqueId: generateUniqueId(category),
-          // push to local items immediately so generateUniqueId increments correctly
-        });
-        items.push(batch[batch.length - 1]); // temp push so IDs increment
+        };
+        items.push(newItem); // temp push so next generateUniqueId sees it
+        batch.push(newItem);
       }
-      // Remove temp items, re-insert after DB confirms
+      // Remove temp items before DB confirms
       items = items.filter(i => !batch.find(b => b.id === i.id));
       const inserted = await dbInsertMany(batch);
       items.push(...inserted);
@@ -598,20 +567,18 @@ function exportExcel() {
 
   const ws = XLSX.utils.json_to_sheet(rows);
   ws['!cols'] = [
-    { wch: 14 }, { wch: 18 }, { wch: 22 }, { wch: 16 }, { wch: 22 }, { wch: 20 }, { wch: 14 }, { wch: 28 },
+    { wch: 14 }, { wch: 18 }, { wch: 22 }, { wch: 16 },
+    { wch: 22 }, { wch: 20 }, { wch: 14 }, { wch: 28 },
   ];
 
-  const wb = XLSX.utils.book_new();
+  const wb   = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
-
   const date = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, `StockDesk_Inventory_${date}.xlsx`);
   toast(`Excel downloaded — ${items.length} item${items.length !== 1 ? 's' : ''} exported.`, 'success');
 }
 
 // ── IMPORT EXCEL ───────────────────────────
-
-// Column name → item field mapping (case-insensitive, trimmed)
 const IMPORT_COL_MAP = {
   'unique id':     'uniqueId',
   'brand':         'brand',
@@ -624,18 +591,15 @@ const IMPORT_COL_MAP = {
   'notes':         'notes',
 };
 
-/** Open hidden file input to pick an Excel file */
 function triggerImport() {
   const input = document.getElementById('importFileInput');
   input.value = '';
   input.click();
 }
 
-/** Called when user picks a file */
 function onImportFileChosen(e) {
   const file = e.target.files[0];
   if (!file) return;
-
   const reader = new FileReader();
   reader.onload = function (evt) {
     try {
@@ -643,14 +607,10 @@ function onImportFileChosen(e) {
       const ws      = wb.Sheets[wb.SheetNames[0]];
       const rawRows = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
-      if (!rawRows.length) {
-        toast('The Excel file appears to be empty.', 'error');
-        return;
-      }
+      if (!rawRows.length) { toast('The Excel file appears to be empty.', 'error'); return; }
 
-      // Normalise column headers
       const parsed = rawRows.map((row, idx) => {
-        const out = { _rowNum: idx + 2 }; // +2: 1-based + header row
+        const out = { _rowNum: idx + 2 };
         for (const [col, val] of Object.entries(row)) {
           const key = IMPORT_COL_MAP[col.trim().toLowerCase()];
           if (key) out[key] = String(val).trim();
@@ -658,16 +618,12 @@ function onImportFileChosen(e) {
         return out;
       });
 
-      // Validate + classify each row
       const preview = parsed.map(row => {
         const errors = [];
         if (!row.brand && !row.model) errors.push('Missing Brand and Model');
-
-        // Duplicate detection by uniqueId or serial
         let dupType = null;
         if (row.uniqueId && items.find(i => i.uniqueId === row.uniqueId)) dupType = 'uniqueId';
-        else if (row.serial && items.find(i => i.serial === row.serial)) dupType = 'serial';
-
+        else if (row.serial && items.find(i => i.serial === row.serial))  dupType = 'serial';
         return { ...row, _errors: errors, _dupType: dupType, _action: errors.length ? 'skip' : (dupType ? 'overwrite' : 'add') };
       });
 
@@ -685,12 +641,10 @@ let _importPreviewRows = [];
 
 function openImportPreview(rows) {
   _importPreviewRows = rows;
+  const addCount  = rows.filter(r => r._action === 'add').length;
+  const dupCount  = rows.filter(r => r._action === 'overwrite').length;
+  const skipCount = rows.filter(r => r._action === 'skip').length;
 
-  const addCount   = rows.filter(r => r._action === 'add').length;
-  const dupCount   = rows.filter(r => r._action === 'overwrite').length;
-  const skipCount  = rows.filter(r => r._action === 'skip').length;
-
-  // Detect which columns are present
   const hasCols = {
     uniqueId: rows.some(r => r.uniqueId),
     brand:    rows.some(r => r.brand),
@@ -701,7 +655,6 @@ function openImportPreview(rows) {
     notes:    rows.some(r => r.notes),
   };
 
-  // Build column headers dynamically
   const colHeaders = ['#'];
   if (hasCols.brand)    colHeaders.push('Brand');
   if (hasCols.model)    colHeaders.push('Model');
@@ -711,13 +664,12 @@ function openImportPreview(rows) {
   if (hasCols.location) colHeaders.push('Location');
   colHeaders.push('Status');
 
-  const tableRows = rows.map((row, i) => {
+  const tableRows = rows.map(row => {
     const statusHtml = row._errors.length
       ? `<span class="import-badge error" title="${row._errors.join(', ')}">⚠ Skip</span>`
       : row._dupType
         ? `<span class="import-badge warn">↺ Overwrite</span>`
         : `<span class="import-badge ok">+ Add</span>`;
-
     const cells = [`<td class="mono" style="color:var(--text-muted)">${row._rowNum}</td>`];
     if (hasCols.brand)    cells.push(`<td><strong>${row.brand    || '—'}</strong></td>`);
     if (hasCols.model)    cells.push(`<td>${row.model    || '—'}</td>`);
@@ -726,27 +678,21 @@ function openImportPreview(rows) {
     if (hasCols.serial)   cells.push(`<td class="mono">${row.serial   || '—'}</td>`);
     if (hasCols.location) cells.push(`<td>${row.location || '—'}</td>`);
     cells.push(`<td>${statusHtml}</td>`);
-
     const rowClass = row._errors.length ? 'import-row-error' : row._dupType ? 'import-row-warn' : '';
     return `<tr class="${rowClass}">${cells.join('')}</tr>`;
   }).join('');
 
-  const modal = document.getElementById('importPreviewOverlay');
   document.getElementById('importPreviewSummary').innerHTML = `
     <span class="import-badge ok">+${addCount} new</span>
     ${dupCount  ? `<span class="import-badge warn">↺ ${dupCount} overwrite</span>` : ''}
     ${skipCount ? `<span class="import-badge error">⚠ ${skipCount} skip</span>`   : ''}
     <span style="color:var(--text-muted);font-size:12px;margin-left:4px;">from ${rows.length} row${rows.length !== 1 ? 's' : ''}</span>
   `;
-
   document.getElementById('importPreviewThead').innerHTML =
     '<tr>' + colHeaders.map(h => `<th>${h}</th>`).join('') + '</tr>';
   document.getElementById('importPreviewTbody').innerHTML = tableRows;
-
-  // Overwrite toggle visibility
   document.getElementById('importOverwriteRow').style.display = dupCount ? '' : 'none';
-
-  modal.classList.add('open');
+  document.getElementById('importPreviewOverlay').classList.add('open');
 }
 
 function closeImportPreview() {
@@ -789,11 +735,10 @@ async function confirmImport() {
 
     const newItem = { id: uid(), brand: '', model: '', serial: '', location: '', notes: '', ...incoming };
     if (!newItem.uniqueId) newItem.uniqueId = generateUniqueId(category);
-    items.push(newItem); // temp push so IDs increment correctly
+    items.push(newItem);
     toInsert.push(newItem);
   }
 
-  // Remove temp-pushed items — DB will confirm them
   if (toInsert.length) items = items.filter(i => !toInsert.find(t => t.id === i.id));
 
   setLoading(true);
@@ -803,7 +748,6 @@ async function confirmImport() {
       items.push(...inserted);
     }
     if (toUpdate.length) await dbUpdateMany(toUpdate);
-
     saveCache();
     renderTable();
     closeImportPreview();
@@ -831,30 +775,21 @@ function toast(msg, type = 'info') {
 
 // ── KEYBOARD SHORTCUTS ─────────────────────
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    closeModal();
-    closeImportPreview();
-  }
-  if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-    e.preventDefault();
-    openModal();
-  }
+  if (e.key === 'Escape') { closeModal(); closeImportPreview(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); openModal(); }
 });
 
 // ── INIT ───────────────────────────────────
-// Wrapped in DOMContentLoaded to guarantee the select elements exist before
-// we append options — previously ran as a bare IIFE which could silently bail.
 document.addEventListener('DOMContentLoaded', async function () {
 
-  // ── Auth guard ──
   const session = AUTH.requireAuth();
   if (!session) return;
 
   currentRole = session.role || 'employee';
-
-  // Show/hide admin-only header controls
   const isAdmin = currentRole === 'admin';
-  ['btn-add-item','btn-import','btn-export'].forEach(id => {
+
+  // Show/hide admin-only controls
+  ['btn-add-item', 'btn-import', 'btn-export'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = isAdmin ? '' : 'none';
   });
@@ -865,17 +800,15 @@ document.addEventListener('DOMContentLoaded', async function () {
   if (chipName) chipName.textContent = session.display_name || session.username;
   if (chipRole) chipRole.textContent = session.role;
 
-  // Populate Location dropdown
+  // Location dropdown
   const locSel = document.getElementById('fLocation');
-  if (locSel) {
-    LOCATION_OPTIONS.forEach(loc => {
-      const opt = document.createElement('option');
-      opt.value = opt.textContent = loc;
-      locSel.appendChild(opt);
-    });
-  }
+  if (locSel) LOCATION_OPTIONS.forEach(loc => {
+    const opt = document.createElement('option');
+    opt.value = opt.textContent = loc;
+    locSel.appendChild(opt);
+  });
 
-  // Populate Status dropdown
+  // Status dropdown
   const statSel = document.getElementById('fStatus');
   if (statSel) {
     while (statSel.options.length > 1) statSel.remove(1);
@@ -887,21 +820,17 @@ document.addEventListener('DOMContentLoaded', async function () {
   }
 
   // Hide employee-irrelevant UI
-  if (currentRole !== 'admin') {
+  if (!isAdmin) {
     const selectAllTh = document.querySelector('th.col-check');
     if (selectAllTh) selectAllTh.style.visibility = 'hidden';
     const bulkBar = document.getElementById('bulkBar');
     if (bulkBar) bulkBar.style.display = 'none';
-    document.addEventListener('scannerReady', () => {
-      const ssBtn = document.getElementById('startSessionBtn');
-      if (ssBtn) ssBtn.style.display = 'none';
-    });
   }
 
-  // Render from cache immediately so the UI isn't blank
+  // Render from cache immediately
   renderTable();
 
-  // Then fetch fresh data from Supabase
+  // Then fetch fresh from Supabase
   setLoading(true);
   try {
     items = await dbFetchAll();
