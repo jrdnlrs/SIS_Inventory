@@ -111,11 +111,10 @@
   }
 
   // ── COMMIT ITEM TO INVENTORY ──────────────
-  function commitItem(serial, status) {
+  async function commitItem(serial, status) {
     const category = session.category || 'Uncategorized';
     const uniqueId = (typeof generateUniqueId === 'function') ? generateUniqueId(category) : '';
     const brand    = session.brand || '';
-    const itemCount = session.log.filter(l => l.status === 'added').length + 1;
     const model    = session.model || '';
 
     const newItem = {
@@ -130,9 +129,9 @@
       notes:    session.notes,
     };
 
+    // Optimistically push to local array and render immediately
     if (typeof items !== 'undefined') {
       items.push(newItem);
-      if (typeof save === 'function') save();
       if (typeof renderTable === 'function') renderTable();
     }
 
@@ -143,6 +142,22 @@
     setTimeout(() => {
       if (typeof flashRow === 'function') flashRow(newItem.id);
     }, 80);
+
+    // Persist to Supabase in the background
+    try {
+      if (typeof dbInsert === 'function') {
+        const inserted = await dbInsert(newItem);
+        // Replace the temp item with the confirmed DB record
+        if (typeof items !== 'undefined') {
+          const idx = items.findIndex(i => i.id === newItem.id);
+          if (idx !== -1) items[idx] = inserted;
+        }
+      }
+      if (typeof saveCache === 'function') saveCache();
+    } catch (err) {
+      console.error('[scanner] Supabase insert failed:', err);
+      if (typeof showToast === 'function') showToast('Item added locally but failed to save to database.', 'error');
+    }
   }
 
   // ── SESSION MODAL ─────────────────────────
