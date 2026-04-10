@@ -841,7 +841,7 @@ async function confirmImport() {
     if (row._dupType) {
       if (!overwrite) { skipped++; continue; }
       let existing = null;
-      if (row.uniqueId) existing = items.find(i => i.unique_id === row.uniqueId);
+      if (row.uniqueId) existing = items.find(i => (i.unique_id || i.uniqueId) === row.uniqueId);
       if (!existing && row.serial) existing = items.find(i => i.serial === row.serial);
       if (existing) {
         if (!incoming.unique_id) incoming.unique_id = generateUniqueId(category, existing.id);
@@ -854,10 +854,31 @@ async function confirmImport() {
     toInsert.push({ brand: '', model: '', serial: '', location: '', notes: '', ...incoming });
   }
 
+  // ── Chunk helper — avoids overwhelming Supabase with huge batches ──
+  async function chunkInsert(rows, size = 50) {
+    for (let i = 0; i < rows.length; i += size) {
+      await _supa.insert(rows.slice(i, i + size));
+    }
+  }
+
+  // ── Sequential updates — avoids 200+ parallel PATCH requests ──
+  async function sequentialUpdate(updates, concurrency = 10) {
+    for (let i = 0; i < updates.length; i += concurrency) {
+      const batch = updates.slice(i, i + concurrency);
+      await Promise.all(batch.map(({ id, data }) => _supa.update(id, data)));
+    }
+  }
+
   showLoading(true);
+
+  // Show a progress toast for large imports
+  if (toInsert.length + toUpdate.length > 50) {
+    toast(`Importing ${toInsert.length + toUpdate.length} items — please wait…`, 'info');
+  }
+
   try {
-    if (toInsert.length) await _supa.insert(toInsert);
-    if (toUpdate.length) await Promise.all(toUpdate.map(({ id, data }) => _supa.update(id, data)));
+    if (toInsert.length) await chunkInsert(toInsert, 50);
+    if (toUpdate.length) await sequentialUpdate(toUpdate, 10);
     closeImportPreview();
     await loadItems();
     toast(`Import done — ${toInsert.length} added, ${toUpdate.length} updated, ${skipped} skipped.`, 'success');
