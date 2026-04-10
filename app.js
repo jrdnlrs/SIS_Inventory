@@ -635,14 +635,14 @@ function exportExcel() {
   const isFiltered = q || cat;
 
   const rows = source.map(item => ({
-    'Unique ID':     item.uniqueId || '',
-    'Brand':         item.brand    || '',
-    'Model':         item.model    || '',
-    'Category':      item.category || '',
-    'Serial Number': item.serial   || '',
-    'Location':      item.location || '',
-    'Status':        item.status   || '',
-    'Notes':         item.notes    || '',
+    'Unique ID':     item.unique_id || item.uniqueId || '',
+    'Brand':         item.brand     || '',
+    'Model':         item.model     || '',
+    'Category':      item.category  || '',
+    'Serial Number': item.serial    || '',
+    'Location':      item.location  || '',
+    'Status':        item.status    || '',
+    'Notes':         item.notes     || '',
   }));
 
   const ws = XLSX.utils.json_to_sheet(rows);
@@ -727,7 +727,7 @@ function onImportFileChosen(e) {
 
         // Duplicate detection by uniqueId or serial
         let dupType = null;
-        if (row.uniqueId && items.find(i => i.uniqueId === row.uniqueId)) dupType = 'uniqueId';
+        if (row.uniqueId && items.find(i => (i.unique_id || i.uniqueId) === row.uniqueId)) dupType = 'uniqueId';
         else if (row.serial && items.find(i => i.serial === row.serial)) dupType = 'serial';
 
         return { ...row, _errors: errors, _dupType: dupType, _action: errors.length ? 'skip' : (dupType ? 'overwrite' : 'add') };
