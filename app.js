@@ -16,34 +16,43 @@ let lastFiltered = []; // tracks the current filtered/sorted view for export
 // ── SUPABASE CLIENT ────────────────────────
 // Requires config.js to be loaded first (SUPABASE_URL + SUPABASE_ANON_KEY)
 const _supa = (() => {
-  const headers = {
-    'apikey':        SUPABASE_ANON_KEY,
-    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-    'Content-Type':  'application/json',
-    'Prefer':        'return=representation',
-  };
   const base = SUPABASE_URL + '/rest/v1/inventory';
 
-  async function request(method, url, body) {
-    const opts = { method, headers: { ...headers } };
-    if (body) opts.body = JSON.stringify(body);
+  // Always build a fresh headers object — never mutate a shared one
+  function makeHeaders(extra = {}) {
+    return {
+      'apikey':        SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+      'Content-Type':  'application/json',
+      'Prefer':        'return=representation',
+      ...extra,
+    };
+  }
+
+  async function request(method, url, body, extraHeaders = {}) {
+    const opts = { method, headers: makeHeaders(extraHeaders) };
+    if (body !== undefined) opts.body = JSON.stringify(body);
     const res = await fetch(url, opts);
     if (!res.ok) {
       const err = await res.text();
-      throw new Error(`Supabase ${method} error ${res.status}: ${err}`);
+      throw new Error(`Supabase ${method} ${res.status}: ${err}`);
     }
     const text = await res.text();
     return text ? JSON.parse(text) : [];
   }
 
   return {
-    getAll:  ()           => request('GET',    base + '?order=created_at.asc&select=*'),
-    insert:  (rows)       => request('POST',   base, rows),
-    update:  (id, data)   => request('PATCH',  base + `?id=eq.${id}`, data),
-    remove:  (ids)        => request('DELETE', base + `?id=in.(${ids.join(',')})`),
-    upsert:  (rows)       => request('POST',   SUPABASE_URL + '/rest/v1/inventory',
-                              // upsert via special header
-                              (() => { headers['Prefer'] = 'resolution=merge-duplicates,return=representation'; return rows; })()),
+    getAll: () =>
+      request('GET', base + '?order=created_at.asc&select=*'),
+
+    insert: (rows) =>
+      request('POST', base, rows),
+
+    update: (id, data) =>
+      request('PATCH', base + `?id=eq.${id}`, data),
+
+    remove: (ids) =>
+      request('DELETE', base + `?id=in.(${ids.join(',')})`, undefined),
   };
 })();
 
@@ -884,7 +893,10 @@ async function confirmImport() {
     toast(`Import done — ${toInsert.length} added, ${toUpdate.length} updated, ${skipped} skipped.`, 'success');
   } catch (e) {
     console.error('[db] confirmImport failed:', e);
-    toast('Import failed. Please try again.', 'error');
+    const msg = e.message || '';
+    // Surface the actual Supabase error so it's actionable
+    const detail = msg.includes(':') ? msg.split(':').slice(1).join(':').trim().slice(0, 120) : msg.slice(0, 120);
+    toast(`Import failed: ${detail || 'Unknown error — check console.'}`, 'error');
   } finally {
     showLoading(false);
   }
