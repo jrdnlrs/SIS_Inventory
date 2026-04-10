@@ -5,7 +5,7 @@
    ───────────────────────────────────────── */
 
 // ── STATE ──────────────────────────────────
-let items = JSON.parse(localStorage.getItem('stockdesk_items') || '[]');
+let items = [];          // populated from Supabase on load
 let editId = null;
 let sortField = 'name';
 let sortAsc = true;
@@ -13,11 +13,135 @@ let selectedIds = new Set();
 let currentRole = 'employee'; // set from session on init
 let lastFiltered = []; // tracks the current filtered/sorted view for export
 
+// ── SUPABASE CLIENT ────────────────────────
+// Requires config.js to be loaded first (SUPABASE_URL + SUPABASE_ANON_KEY)
+const _supa = (() => {
+  const headers = {
+    'apikey':        SUPABASE_ANON_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+    'Content-Type':  'application/json',
+    'Prefer':        'return=representation',
+  };
+  const base = SUPABASE_URL + '/rest/v1/inventory';
 
-// Seed sample data on first load
-if (items.length === 0) {
-  items = [];
-  save();
+  async function request(method, url, body) {
+    const opts = { method, headers: { ...headers } };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(url, opts);
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Supabase ${method} error ${res.status}: ${err}`);
+    }
+    const text = await res.text();
+    return text ? JSON.parse(text) : [];
+  }
+
+  return {
+    getAll:  ()           => request('GET',    base + '?order=created_at.asc&select=*'),
+    insert:  (rows)       => request('POST',   base, rows),
+    update:  (id, data)   => request('PATCH',  base + `?id=eq.${id}`, data),
+    remove:  (ids)        => request('DELETE', base + `?id=in.(${ids.join(',')})`),
+    upsert:  (rows)       => request('POST',   SUPABASE_URL + '/rest/v1/inventory',
+                              // upsert via special header
+                              (() => { headers['Prefer'] = 'resolution=merge-duplicates,return=representation'; return rows; })()),
+  };
+})();
+
+// ── REALTIME SUBSCRIPTION ─────────────────
+// Listens for INSERT / UPDATE / DELETE on the inventory table
+// and keeps all connected clients in sync automatically.
+function subscribeRealtime() {
+  const wsUrl = SUPABASE_URL.replace('https://', 'wss://') + '/realtime/v1/websocket'
+    + '?apikey=' + SUPABASE_ANON_KEY + '&vsn=1.0.0';
+
+  let ws;
+  let heartbeat;
+  let reconnectDelay = 2000;
+
+  function connect() {
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      reconnectDelay = 2000; // reset backoff on success
+
+      // Join the realtime channel for the inventory table
+      ws.send(JSON.stringify({
+        topic:   'realtime:public:inventory',
+        event:   'phx_join',
+        payload: { config: { broadcast: { self: false }, presence: { key: '' } } },
+        ref:     '1',
+      }));
+
+      // Heartbeat every 25s to keep connection alive
+      heartbeat = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: null }));
+        }
+      }, 25000);
+    };
+
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        const ev  = msg.payload?.type; // INSERT | UPDATE | DELETE
+        if (!ev) return;
+
+        const record = msg.payload.record;
+        const old_record = msg.payload.old_record;
+
+        if (ev === 'INSERT') {
+          // Only add if not already present (e.g. from our own write)
+          if (record && !items.find(i => i.id === record.id)) {
+            items.push(record);
+            renderTable();
+            showRealtimePulse('insert');
+          }
+        } else if (ev === 'UPDATE') {
+          if (record) {
+            const idx = items.findIndex(i => i.id === record.id);
+            if (idx !== -1) {
+              items[idx] = record;
+            } else {
+              items.push(record);
+            }
+            renderTable();
+            showRealtimePulse('update');
+          }
+        } else if (ev === 'DELETE') {
+          if (old_record) {
+            items = items.filter(i => i.id !== old_record.id);
+            renderTable();
+            showRealtimePulse('delete');
+          }
+        }
+      } catch (err) {
+        console.warn('[realtime] parse error:', err);
+      }
+    };
+
+    ws.onerror = (e) => console.warn('[realtime] WebSocket error:', e);
+
+    ws.onclose = () => {
+      clearInterval(heartbeat);
+      // Reconnect with exponential backoff (max 30s)
+      setTimeout(() => {
+        reconnectDelay = Math.min(reconnectDelay * 1.5, 30000);
+        connect();
+      }, reconnectDelay);
+    };
+  }
+
+  connect();
+}
+
+// Brief visual pulse on the stat card when a remote change arrives
+function showRealtimePulse(type) {
+  const card = document.getElementById('statCardTotal');
+  if (!card) return;
+  const color = type === 'delete' ? 'var(--red)' : type === 'update' ? 'var(--orange)' : 'var(--accent)';
+  card.style.transition = 'box-shadow 0.2s ease';
+  card.style.boxShadow  = `0 0 0 2px ${color}`;
+  setTimeout(() => { card.style.boxShadow = ''; }, 800);
 }
 
 // ── CATEGORY → ID PREFIX MAP ───────────────
@@ -53,8 +177,8 @@ function generateUniqueId(category, excludeId = null) {
   const cat    = (category || '').trim();
   const prefix = CATEGORY_PREFIX[cat] || 'SIS-' + cat.slice(0, 3).toUpperCase().replace(/[^A-Z]/g, 'X');
   const existing = items
-    .filter(i => i.uniqueId && i.uniqueId.startsWith(prefix) && i.id !== excludeId)
-    .map(i => parseInt(i.uniqueId.replace(prefix, ''), 10))
+    .filter(i => (i.unique_id || i.uniqueId) && (i.unique_id || i.uniqueId).startsWith(prefix) && i.id !== excludeId)
+    .map(i => parseInt((i.unique_id || i.uniqueId || '').replace(prefix, ''), 10))
     .filter(n => !isNaN(n));
   const next = existing.length > 0 ? existing.reduce((a, b) => Math.max(a, b), 0) + 1 : 1;
   return prefix + String(next).padStart(4, '0');
@@ -65,8 +189,27 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
-function save() {
-  localStorage.setItem('stockdesk_items', JSON.stringify(items));
+// save() is replaced by direct Supabase calls per operation.
+// This stub remains so any stray call doesn't crash.
+function save() { /* no-op: data lives in Supabase */ }
+
+function showLoading(on) {
+  const bar = document.getElementById('loadingBar');
+  if (bar) bar.style.display = on ? 'block' : 'none';
+}
+
+async function loadItems() {
+  showLoading(true);
+  try {
+    items = await _supa.getAll();
+  } catch (e) {
+    console.error('[db] loadItems failed:', e);
+    toast('Could not load inventory. Check your connection.', 'error');
+    items = [];
+  } finally {
+    showLoading(false);
+  }
+  renderTable();
 }
 
 // ── ITEM STATUS BADGE ──────────────────────
@@ -91,7 +234,7 @@ function renderTable() {
                          || (item.category || '').toLowerCase().includes(q)
                          || (item.serial   || '').toLowerCase().includes(q)
                          || (item.location || '').toLowerCase().includes(q)
-                         || (item.uniqueId || '').toLowerCase().includes(q);
+                         || (item.unique_id || item.uniqueId || '').toLowerCase().includes(q);
     const matchCat = !cat || (item.category || '') === cat;
     return matchQ && matchCat;
   });
@@ -128,7 +271,7 @@ function renderTable() {
             ${selectedIds.has(item.id) ? 'checked' : ''}
             onchange="onRowCheckChange(this, '${item.id}')" />
         </td>` : '<td class="col-check"></td>'}
-        <td class="mono" style="color:var(--accent);font-weight:500">${item.uniqueId || '—'}</td>
+        <td class="mono" style="color:var(--accent);font-weight:500">${item.unique_id || item.uniqueId || '—'}</td>
         <td class="mono" style="color:var(--text-muted)">${item.serial || '—'}</td>
         <td><strong>${item.brand || '—'}</strong></td>
         <td style="color:var(--text-muted);font-size:13px">${item.model || '—'}</td>
@@ -254,29 +397,45 @@ function clearSelection() {
 }
 
 // ── BULK DELETE ────────────────────────────
-function bulkDelete() {
+async function bulkDelete() {
   if (currentRole !== 'admin') { toast('Admin access required.', 'error'); return; }
   const count = selectedIds.size;
   if (!count) return;
   if (!confirm(`Delete ${count} selected item${count > 1 ? 's' : ''}? This cannot be undone.`)) return;
-  items = items.filter(i => !selectedIds.has(i.id));
-  selectedIds.clear();
-  save();
-  renderTable();
-  toast(`${count} item${count > 1 ? 's' : ''} deleted.`, 'info');
+  showLoading(true);
+  try {
+    await _supa.remove([...selectedIds]);
+    selectedIds.clear();
+    toast(`${count} item${count > 1 ? 's' : ''} deleted.`, 'info');
+    await loadItems();
+  } catch (e) {
+    console.error('[db] bulkDelete failed:', e);
+    toast('Failed to delete. Please try again.', 'error');
+  } finally {
+    showLoading(false);
+  }
 }
 
 // ── BULK STATUS CHANGE ─────────────────────
-function bulkChangeStatus() {
+async function bulkChangeStatus() {
   if (currentRole !== 'admin') { toast('Admin access required.', 'error'); return; }
   const status = document.getElementById('bulkStatusSelect').value;
   if (!status) { toast('Please select a status to apply.', 'error'); return; }
   const count = selectedIds.size;
   if (!count) return;
-  items.forEach(i => { if (selectedIds.has(i.id)) i.status = status; });
-  save();
-  renderTable();
-  toast(`Status updated to "${status}" for ${count} item${count > 1 ? 's' : ''}.`, 'success');
+  showLoading(true);
+  try {
+    // Update each selected item — run in parallel
+    await Promise.all([...selectedIds].map(id => _supa.update(id, { status })));
+    selectedIds.clear();
+    toast(`Status updated to "${status}" for ${count} item${count > 1 ? 's' : ''}.`, 'success');
+    await loadItems();
+  } catch (e) {
+    console.error('[db] bulkChangeStatus failed:', e);
+    toast('Failed to update status. Please try again.', 'error');
+  } finally {
+    showLoading(false);
+  }
 }
 
 // ── FLASH ROW ──────────────────────────────
@@ -315,8 +474,8 @@ function openModal(id = null) {
   if (!isEdit) document.getElementById('fSerial').value = '';
 
   const uniqueIdField = document.getElementById('fUniqueId');
-  if (isEdit && item.uniqueId) {
-    uniqueIdField.value = item.uniqueId;
+  if (isEdit && (item.unique_id || item.uniqueId)) {
+    uniqueIdField.value = item.unique_id || item.uniqueId;
   } else if (!isEdit && item.category) {
     // editing existing — category pre-filled
     uniqueIdField.value = generateUniqueId(item.category, id);
@@ -374,7 +533,7 @@ function closeModalOutside(e) {
   if (e.target === document.getElementById('overlay')) closeModal();
 }
 
-function saveItem() {
+async function saveItem() {
   if (currentRole !== 'admin') { toast('Admin access required.', 'error'); return; }
   const brand = document.getElementById('fBrand').value.trim();
   const model = document.getElementById('fModel').value.trim();
@@ -390,64 +549,81 @@ function saveItem() {
     notes:    document.getElementById('fNotes').value.trim(),
   };
 
-  if (editId) {
-    // ── Single edit ──
-    const idx      = items.findIndex(i => i.id === editId);
-    if (idx === -1) { toast('Item not found. It may have been deleted.', 'error'); closeModal(); return; }
-    const existing = items[idx];
-    const data     = {
-      ...base,
-      brand,
-      model,
-      serial:   document.getElementById('fSerial').value.trim(),
-      uniqueId: (existing.uniqueId && existing.category === category)
-        ? existing.uniqueId
-        : generateUniqueId(category, editId),
-    };
-    items[idx] = { ...existing, ...data };
-    toast('Item updated.', 'success');
+  const saveBtn = document.getElementById('saveBtn');
+  saveBtn.disabled = true;
+  showLoading(true);
 
-  } else if (qty === 1) {
-    // ── Single add ──
-    items.push({
-      id: uid(),
-      ...base,
-      brand,
-      model,
-      serial:   document.getElementById('fSerial').value.trim(),
-      uniqueId: generateUniqueId(category),
-    });
-    toast('Item added.', 'success');
-
-  } else {
-    // ── Batch add ──
-    const prefix = [brand, model].filter(Boolean).join(' ');
-    for (let i = 1; i <= qty; i++) {
-      items.push({
-        id:       uid(),
+  try {
+    if (editId) {
+      // ── Single edit ──
+      const existing = items.find(i => i.id === editId);
+      if (!existing) { toast('Item not found. It may have been deleted.', 'error'); closeModal(); return; }
+      const data = {
         ...base,
         brand,
-        model:    model ? `${model} #${i}` : `#${i}`,
-        serial:   '',
-        uniqueId: generateUniqueId(category),
-      });
-    }
-    toast(`${qty} items added successfully.`, 'success');
-  }
+        model,
+        serial:    document.getElementById('fSerial').value.trim(),
+        unique_id: (existing.unique_id && existing.category === category)
+          ? existing.unique_id
+          : generateUniqueId(category, editId),
+      };
+      await _supa.update(editId, data);
+      toast('Item updated.', 'success');
 
-  save();
-  closeModal();
-  renderTable();
+    } else if (qty === 1) {
+      // ── Single add ──
+      const newItem = {
+        ...base,
+        brand,
+        model,
+        serial:    document.getElementById('fSerial').value.trim(),
+        unique_id: generateUniqueId(category),
+      };
+      await _supa.insert(newItem);
+      toast('Item added.', 'success');
+
+    } else {
+      // ── Batch add ──
+      const newItems = [];
+      for (let i = 1; i <= qty; i++) {
+        newItems.push({
+          ...base,
+          brand,
+          model:     model ? `${model} #${i}` : `#${i}`,
+          serial:    '',
+          unique_id: generateUniqueId(category),
+        });
+      }
+      await _supa.insert(newItems);
+      toast(`${qty} items added successfully.`, 'success');
+    }
+
+    closeModal();
+    await loadItems();
+  } catch (e) {
+    console.error('[db] saveItem failed:', e);
+    toast('Failed to save. Please try again.', 'error');
+  } finally {
+    saveBtn.disabled = false;
+    showLoading(false);
+  }
 }
 
 // ── DELETE ─────────────────────────────────
-function deleteItem(id) {
+async function deleteItem(id) {
   if (currentRole !== 'admin') { toast('Admin access required.', 'error'); return; }
   if (!confirm('Delete this item?')) return;
-  items = items.filter(i => i.id !== id);
-  save();
-  renderTable();
-  toast('Item deleted.', 'info');
+  showLoading(true);
+  try {
+    await _supa.remove([id]);
+    toast('Item deleted.', 'info');
+    await loadItems();
+  } catch (e) {
+    console.error('[db] deleteItem failed:', e);
+    toast('Failed to delete. Please try again.', 'error');
+  } finally {
+    showLoading(false);
+  }
 }
 
 // ── EXPORT EXCEL ───────────────────────────
@@ -643,60 +819,54 @@ function closeImportPreviewOutside(e) {
   if (e.target === document.getElementById('importPreviewOverlay')) closeImportPreview();
 }
 
-function confirmImport() {
+async function confirmImport() {
   const overwrite = document.getElementById('importOverwriteToggle').checked;
-  let added = 0, updated = 0, skipped = 0;
+  const toInsert  = [];
+  const toUpdate  = []; // { id, data }
+  let skipped = 0;
 
   for (const row of _importPreviewRows) {
     if (row._errors.length) { skipped++; continue; }
 
     const category = row.category || 'Uncategorized';
-
-    // Build item — only include fields that were present in the sheet
     const incoming = { category };
-    if (row.brand    !== undefined) incoming.brand    = row.brand;
-    if (row.model    !== undefined) incoming.model    = row.model;
-    if (row.uniqueId !== undefined) incoming.uniqueId = row.uniqueId;
-    if (row.serial   !== undefined) incoming.serial   = row.serial;
-    if (row.location !== undefined) incoming.location = row.location;
-    if (row.status   !== undefined) incoming.status   = row.status;
-    if (row.notes    !== undefined) incoming.notes    = row.notes;
+    if (row.brand    !== undefined) incoming.brand     = row.brand;
+    if (row.model    !== undefined) incoming.model     = row.model;
+    if (row.uniqueId !== undefined) incoming.unique_id = row.uniqueId;
+    if (row.serial   !== undefined) incoming.serial    = row.serial;
+    if (row.location !== undefined) incoming.location  = row.location;
+    if (row.status   !== undefined) incoming.status    = row.status;
+    if (row.notes    !== undefined) incoming.notes     = row.notes;
 
     if (row._dupType) {
       if (!overwrite) { skipped++; continue; }
-
-      // Find the existing item to update
       let existing = null;
-      if (row.uniqueId) existing = items.find(i => i.uniqueId === row.uniqueId);
+      if (row.uniqueId) existing = items.find(i => i.unique_id === row.uniqueId);
       if (!existing && row.serial) existing = items.find(i => i.serial === row.serial);
-
       if (existing) {
-        Object.assign(existing, incoming);
-        if (!row.uniqueId) existing.uniqueId = generateUniqueId(category, existing.id);
-        updated++;
+        if (!incoming.unique_id) incoming.unique_id = generateUniqueId(category, existing.id);
+        toUpdate.push({ id: existing.id, data: incoming });
         continue;
       }
     }
 
-    // New item
-    const newItem = {
-      id:       uid(),
-      brand:    '',
-      model:    '',
-      serial:   '',
-      location: '',
-      notes:    '',
-      ...incoming,
-    };
-    if (!newItem.uniqueId) newItem.uniqueId = generateUniqueId(category);
-    items.push(newItem);
-    added++;
+    if (!incoming.unique_id) incoming.unique_id = generateUniqueId(category);
+    toInsert.push({ brand: '', model: '', serial: '', location: '', notes: '', ...incoming });
   }
 
-  save();
-  renderTable();
-  closeImportPreview();
-  toast(`Import done — ${added} added, ${updated} updated, ${skipped} skipped.`, 'success');
+  showLoading(true);
+  try {
+    if (toInsert.length) await _supa.insert(toInsert);
+    if (toUpdate.length) await Promise.all(toUpdate.map(({ id, data }) => _supa.update(id, data)));
+    closeImportPreview();
+    await loadItems();
+    toast(`Import done — ${toInsert.length} added, ${toUpdate.length} updated, ${skipped} skipped.`, 'success');
+  } catch (e) {
+    console.error('[db] confirmImport failed:', e);
+    toast('Import failed. Please try again.', 'error');
+  } finally {
+    showLoading(false);
+  }
 }
 
 // ── TOAST ──────────────────────────────────
@@ -785,5 +955,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  renderTable();
+  loadItems();
+  subscribeRealtime();
 });
