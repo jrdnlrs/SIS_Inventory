@@ -112,51 +112,56 @@
 
   // ── COMMIT ITEM TO INVENTORY ──────────────
   async function commitItem(serial, status) {
-    const category = session.category || 'Uncategorized';
-    const uniqueId = (typeof generateUniqueId === 'function') ? generateUniqueId(category) : '';
-    const brand    = session.brand || '';
-    const model    = session.model || '';
+    const category  = session.category || 'Uncategorized';
+    const unique_id = (typeof generateUniqueId === 'function') ? generateUniqueId(category) : '';
+    const brand     = session.brand || '';
+    const itemCount = session.log.filter(l => l.status === 'added').length + 1;
+    const model     = session.model
+      ? `${session.model} #${itemCount}`
+      : `${category} #${itemCount}`;
 
-    const newItem = {
-      id:       uid(),
-      serial,
-      brand,
-      model,
-      category,
-      uniqueId,
+    // Temp local ID for UI only — never sent to Supabase
+    const tempId = uid();
+
+    const localItem = {
+      id: tempId, serial, brand, model, category, unique_id,
       location: session.location,
       status:   session.status,
       notes:    session.notes,
     };
 
-    // Optimistically push to local array and render immediately
+    // Optimistically add to local array and render immediately
     if (typeof items !== 'undefined') {
-      items.push(newItem);
+      items.push(localItem);
       if (typeof renderTable === 'function') renderTable();
     }
 
     setStatus(status, 'found', '✓ Added');
-    addToSessionLog({ serial, brand, model, uniqueId, status: 'added' });
+    addToSessionLog({ serial, brand, model, uniqueId: unique_id, status: 'added' });
     pulseScanner('ok');
+    setTimeout(() => { if (typeof flashRow === 'function') flashRow(tempId); }, 80);
 
-    setTimeout(() => {
-      if (typeof flashRow === 'function') flashRow(newItem.id);
-    }, 80);
-
-    // Persist to Supabase in the background
+    // Persist to Supabase — payload has no id or created_at
     try {
-      if (typeof dbInsert === 'function') {
-        const inserted = await dbInsert(newItem);
-        // Replace the temp item with the confirmed DB record
-        if (typeof items !== 'undefined') {
-          const idx = items.findIndex(i => i.id === newItem.id);
-          if (idx !== -1) items[idx] = inserted;
-        }
+      const dbPayload = { serial, brand, model, category, unique_id,
+        location: session.location, status: session.status, notes: session.notes };
+      const inserted = await _supa.insert(dbPayload);
+      const saved = Array.isArray(inserted) ? inserted[0] : inserted;
+
+      // Replace temp item with real DB record (gets real UUID from Supabase)
+      if (saved && typeof items !== 'undefined') {
+        const idx = items.findIndex(i => i.id === tempId);
+        if (idx !== -1) items[idx] = saved;
+        if (typeof renderTable === 'function') renderTable();
       }
-      if (typeof saveCache === 'function') saveCache();
     } catch (err) {
       console.error('[scanner] Supabase insert failed:', err);
-      if (typeof showToast === 'function') showToast('Item added locally but failed to save to database.', 'error');
+      showToast('Failed to save scanned item. Check connection.', 'error');
+      // Remove the optimistic item on failure
+      if (typeof items !== 'undefined') {
+        items = items.filter(i => i.id !== tempId);
+        if (typeof renderTable === 'function') renderTable();
+      }
     }
   }
 

@@ -45,8 +45,16 @@ const _supa = (() => {
     getAll: () =>
       request('GET', base + '?order=created_at.asc&select=*'),
 
-    insert: (rows) =>
-      request('POST', base, rows),
+    insert: (rows) => {
+      // Strip auto-generated fields — never let client send id or created_at
+      const clean = (Array.isArray(rows) ? rows : [rows]).map(r => {
+        const c = { ...r };
+        delete c.id;
+        delete c.created_at;
+        return c;
+      });
+      return request('POST', base, Array.isArray(rows) ? clean : clean[0]);
+    },
 
     update: (id, data) =>
       request('PATCH', base + `?id=eq.${id}`, data),
@@ -860,7 +868,11 @@ async function confirmImport() {
     }
 
     if (!incoming.unique_id) incoming.unique_id = generateUniqueId(category);
-    toInsert.push({ brand: '', model: '', serial: '', location: '', notes: '', ...incoming });
+    const newRow = { brand: '', model: '', serial: '', location: '', notes: '', ...incoming };
+    // Never send id or created_at — Supabase generates these
+    delete newRow.id;
+    delete newRow.created_at;
+    toInsert.push(newRow);
   }
 
   // ── Chunk helper — avoids overwhelming Supabase with huge batches ──
