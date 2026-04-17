@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="payroll.css">
 </head>
 <body>
 <div class="app">
@@ -27,7 +28,6 @@
       </div>
     </div>
     <div class="header-actions">
-      <!-- Hidden file input for import -->
       <input type="file" id="importFileInput" accept=".xlsx,.xls" style="display:none" onchange="onImportFileChosen(event)" />
       <button id="btn-import" class="btn btn-ghost" onclick="triggerImport()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -56,6 +56,18 @@
       </button>
     </div>
   </header>
+
+  <!-- NAV TABS -->
+  <nav class="tab-nav">
+    <a href="index.html" class="tab-link active">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h18M3 15h18"/></svg>
+      Inventory
+    </a>
+    <a href="payroll.html" class="tab-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      Payroll
+    </a>
+  </nav>
 
   <!-- STATS -->
   <div class="stats">
@@ -160,12 +172,11 @@
         <label>Serial Number</label>
         <input id="fSerial" placeholder="e.g. SN-ABC123XYZ" />
       </div>
-      <!-- Quantity — only shown when adding, hidden on edit -->
       <div class="form-group form-full" id="fQuantityGroup">
         <label>
           Quantity
           <span style="font-weight:400;color:var(--text-muted);font-size:11px;margin-left:8px;">
-            Enter more than 1 to batch-add multiple items (e.g. 200 cameras)
+            Enter more than 1 to batch-add multiple items
           </span>
         </label>
         <input id="fQuantity" type="number" min="1" max="500" value="1" oninput="onQuantityChange()" />
@@ -202,11 +213,7 @@
     <p style="margin:-8px 0 14px;font-size:13px;color:var(--text-muted);">
       Review the rows below before importing. Only columns present in your file will be filled.
     </p>
-
-    <!-- Summary badges -->
     <div id="importPreviewSummary" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
-
-    <!-- Overwrite toggle (shown only when duplicates exist) -->
     <div id="importOverwriteRow" style="
       display:none;align-items:center;gap:10px;
       padding:10px 14px;border-radius:8px;margin-bottom:14px;
@@ -221,15 +228,12 @@
         </span>
       </label>
     </div>
-
-    <!-- Preview table -->
     <div class="import-table-wrap">
       <table class="import-table">
         <thead id="importPreviewThead"></thead>
         <tbody id="importPreviewTbody"></tbody>
       </table>
     </div>
-
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeImportPreview()">Cancel</button>
       <button class="btn btn-primary" onclick="confirmImport()">

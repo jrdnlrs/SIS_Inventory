@@ -1,0 +1,216 @@
+/* ─────────────────────────────────────────
+   StockDesk — payroll.css
+   ───────────────────────────────────────── */
+
+/* ── NAV TABS ── */
+.tab-nav {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+
+.tab-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 18px;
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tab-link:hover { color: var(--text); }
+.tab-link.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── PAYROLL INNER TABS ── */
+.payroll-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+}
+
+.ptab {
+  padding: 7px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ptab:hover { color: var(--text); border-color: #444; }
+.ptab.active { background: var(--accent); color: #0f0f11; border-color: var(--accent); }
+
+/* ── SECTION HEADER ── */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.section-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: 'DM Mono', monospace;
+  margin-top: 3px;
+}
+
+/* ── PAYROLL CONTROLS ── */
+.payroll-controls {
+  display: flex;
+  gap: 20px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.payroll-controls input[type="month"] {
+  padding: 9px 13px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.payroll-controls input[type="month"]:focus { border-color: var(--accent); }
+
+/* ── SUMMARY BAR ── */
+.payroll-summary-bar {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding: 18px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.summary-label {
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+
+.summary-val {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.summary-val.accent { color: var(--accent); }
+
+/* ── EMPLOYEE STATUS BADGE ── */
+.badge-active   { background: rgba(95,223,143,0.12); color: var(--green); }
+.badge-inactive { background: rgba(255,95,95,0.12);  color: var(--red); }
+
+/* ── HISTORY ROW ── */
+.history-period {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+/* ── PAYSLIP PREVIEW (injected into PDF via HTML) ── */
+.payslip-wrap {
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  color: #111;
+  padding: 28px 32px;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.payslip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2px solid #c8f135;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+}
+
+.payslip-company { font-size: 15px; font-weight: 700; }
+.payslip-period  { font-size: 11px; color: #555; text-align: right; }
+
+.payslip-employee-box {
+  background: #f5f5f5;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 24px;
+}
+
+.prow { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #eee; }
+.prow:last-child { border-bottom: none; }
+.plabel { color: #555; }
+.pval   { font-weight: 600; }
+.pval.total { font-size: 13px; color: #0f0f11; }
+.pval.net   { font-size: 14px; font-weight: 700; color: #2a7a40; }
+
+.payslip-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #888;
+  margin: 14px 0 6px;
+}
+
+.payslip-footer {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+.sig-line {
+  border-top: 1px solid #333;
+  padding-top: 6px;
+  font-size: 10px;
+  color: #555;
+  text-align: center;
+  margin-top: 32px;
+}
+
+/* ── LOADING PULSE ── */
+@keyframes loadingPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
