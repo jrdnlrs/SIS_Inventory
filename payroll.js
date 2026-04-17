@@ -15,12 +15,15 @@ const EMP_URL     = `${SUPABASE_URL}/rest/v1/employees`;
 const PERIOD_URL  = `${SUPABASE_URL}/rest/v1/payroll_periods`;
 const RECORD_URL  = `${SUPABASE_URL}/rest/v1/payroll_records`;
 
-const DB_HEADERS = {
-  'Content-Type':  'application/json',
-  'apikey':        SUPABASE_ANON_KEY,
-  'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-  'Prefer':        'return=representation',
-};
+function makeDbHeaders(extra = {}) {
+  return {
+    'Content-Type':  'application/json',
+    'apikey':        SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    'Prefer':        'return=representation',
+    ...extra,
+  };
+}
 
 // ── STATE ──────────────────────────────────
 let employees      = [];
@@ -30,14 +33,14 @@ let payrollHistory = [];
 
 // ── SUPABASE HELPERS ───────────────────────
 async function sbGet(url) {
-  const res = await fetch(url, { headers: DB_HEADERS });
+  const res = await fetch(url, { headers: makeDbHeaders() });
   if (!res.ok) throw new Error(`GET ${url} failed: ${res.status}`);
   return res.json();
 }
 
 async function sbPost(url, body) {
   const res = await fetch(url, {
-    method: 'POST', headers: DB_HEADERS,
+    method: 'POST', headers: makeDbHeaders(),
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`POST ${url} failed: ${res.status}`);
@@ -46,7 +49,7 @@ async function sbPost(url, body) {
 
 async function sbPatch(url, body) {
   const res = await fetch(url, {
-    method: 'PATCH', headers: DB_HEADERS,
+    method: 'PATCH', headers: makeDbHeaders(),
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`PATCH ${url} failed: ${res.status}`);
@@ -56,7 +59,7 @@ async function sbPatch(url, body) {
 async function sbDelete(url) {
   const res = await fetch(url, {
     method: 'DELETE',
-    headers: { ...DB_HEADERS, Prefer: 'return=minimal' },
+    headers: makeDbHeaders({ Prefer: 'return=minimal' }),
   });
   if (!res.ok) throw new Error(`DELETE ${url} failed: ${res.status}`);
 }
@@ -464,14 +467,14 @@ function generatePayslipPDF(row, month) {
   const pad  = 20;
 
   // Accent color
-  const accent = [200, 241, 53];
-  const dark   = [15, 15, 17];
+  const accent = [59, 130, 246];  // SIS brand blue
+  const dark   = [8, 12, 20];    // SIS dark navy
 
   // ── Header bar ──
   doc.setFillColor(...dark);
   doc.rect(0, 0, W, 30, 'F');
 
-  doc.setTextColor(200, 241, 53);
+  doc.setTextColor(96, 165, 250);  // accent-bright
   doc.setFontSize(13);
   doc.setFont('helvetica', 'bold');
   doc.text('Supreme InfoTech Solutions', pad, 13);
@@ -616,12 +619,10 @@ async function saveAndGeneratePayslips() {
   try {
     // Save payroll period
     const period = {
-      id:          uid(),
       month,
       employee_count: computedRows.length,
       total_gross: computedRows.reduce((s, r) => s + r.gross, 0),
       total_net:   computedRows.reduce((s, r) => s + r.net, 0),
-      created_at:  new Date().toISOString(),
     };
 
     const [savedPeriod] = await sbPost(PERIOD_URL, period);
@@ -629,7 +630,6 @@ async function saveAndGeneratePayslips() {
 
     // Save individual records
     const records = computedRows.map(r => ({
-      id:           uid(),
       period_id:    periodId,
       employee_id:  r.emp.id,
       employee_name: r.emp.name,
@@ -762,12 +762,12 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   // Admin only
   if (session.role !== 'admin') {
-    document.body.innerHTML = `<div style="display:grid;place-items:center;height:100vh;font-family:'Syne',sans-serif;color:#e8e8ec;background:#0f0f11;">
+    document.body.innerHTML = `<div style="display:grid;place-items:center;height:100vh;font-family:'Barlow',sans-serif;color:#e8edf5;background:#080c14;">
       <div style="text-align:center">
         <div style="font-size:32px;margin-bottom:12px">🔒</div>
         <div style="font-size:18px;font-weight:700">Admin access required</div>
-        <div style="color:#7a7a8a;margin:8px 0 20px">Payroll is restricted to admin users.</div>
-        <a href="index.html" style="color:#c8f135">← Back to Inventory</a>
+        <div style="color:#6b7fa3;margin:8px 0 20px">Payroll is restricted to admin users.</div>
+        <a href="index.html" style="color:#60a5fa">← Back to Inventory</a>
       </div>
     </div>`;
     return;

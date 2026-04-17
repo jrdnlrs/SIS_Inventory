@@ -1,5 +1,6 @@
 /* ─────────────────────────────────────────
-   StockDesk — payroll.css
+   SIS — payrollstyles.css
+   Payroll UI — aligned to SIS brand system
    ───────────────────────────────────────── */
 
 /* ── NAV TABS ── */
@@ -16,7 +17,7 @@
   align-items: center;
   gap: 7px;
   padding: 10px 18px;
-  font-family: 'Syne', sans-serif;
+  font-family: 'Barlow', sans-serif;
   font-size: 13px;
   font-weight: 600;
   color: var(--text-muted);
@@ -24,33 +25,40 @@
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   transition: color 0.15s, border-color 0.15s;
+  letter-spacing: 0.2px;
 }
 
 .tab-link:hover { color: var(--text); }
-.tab-link.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-link.active { color: var(--accent-bright); border-bottom-color: var(--accent); }
 
 /* ── PAYROLL INNER TABS ── */
 .payroll-tabs {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   margin-bottom: 24px;
 }
 
 .ptab {
   padding: 7px 18px;
-  border-radius: 8px;
+  border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-muted);
-  font-family: 'Syne', sans-serif;
+  font-family: 'Barlow', sans-serif;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
+  letter-spacing: 0.2px;
 }
 
-.ptab:hover { color: var(--text); border-color: #444; }
-.ptab.active { background: var(--accent); color: #0f0f11; border-color: var(--accent); }
+.ptab:hover { color: var(--text); border-color: var(--border-bright); background: var(--surface3); }
+.ptab.active {
+  background: linear-gradient(135deg, var(--accent-dim), var(--accent));
+  color: #fff;
+  border-color: var(--accent);
+  box-shadow: 0 2px 10px rgba(59,130,246,0.25);
+}
 
 /* ── SECTION HEADER ── */
 .section-header {
@@ -61,15 +69,19 @@
 }
 
 .section-title {
-  font-size: 16px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 18px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .section-sub {
   font-size: 12px;
   color: var(--text-muted);
-  font-family: 'DM Mono', monospace;
+  font-family: 'JetBrains Mono', monospace;
   margin-top: 3px;
+  letter-spacing: 0.3px;
 }
 
 /* ── PAYROLL CONTROLS ── */
@@ -82,22 +94,33 @@
   padding: 20px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
+}
+
+.payroll-controls .form-group label {
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
 }
 
 .payroll-controls input[type="month"] {
   padding: 9px 13px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   color: var(--text);
-  font-family: 'DM Mono', monospace;
+  font-family: 'JetBrains Mono', monospace;
   font-size: 13px;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.payroll-controls input[type="month"]:focus { border-color: var(--accent); }
+.payroll-controls input[type="month"]:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
 
 /* ── SUMMARY BAR ── */
 .payroll-summary-bar {
@@ -109,7 +132,8 @@
   padding: 18px 24px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
+  border-left: 3px solid var(--accent);
 }
 
 .summary-item {
@@ -119,98 +143,51 @@
 }
 
 .summary-label {
-  font-size: 11px;
-  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 1.5px;
   color: var(--text-muted);
 }
 
 .summary-val {
-  font-size: 20px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 22px;
   font-weight: 700;
+  color: var(--text);
 }
 
-.summary-val.accent { color: var(--accent); }
+.summary-val.accent { color: var(--accent-bright); }
 
-/* ── EMPLOYEE STATUS BADGE ── */
-.badge-active   { background: rgba(95,223,143,0.12); color: var(--green); }
-.badge-inactive { background: rgba(255,95,95,0.12);  color: var(--red); }
+/* ── EMPLOYEE STATUS BADGES ── */
+.badge-active   {
+  background: rgba(52,211,153,0.1);
+  color: var(--green);
+  border: 1px solid rgba(52,211,153,0.2);
+}
+.badge-inactive {
+  background: rgba(248,113,113,0.1);
+  color: var(--red);
+  border: 1px solid rgba(248,113,113,0.2);
+}
 
 /* ── HISTORY ROW ── */
 .history-period {
-  font-family: 'DM Mono', monospace;
+  font-family: 'JetBrains Mono', monospace;
   font-size: 13px;
   font-weight: 500;
-  color: var(--accent);
-}
-
-/* ── PAYSLIP PREVIEW (injected into PDF via HTML) ── */
-.payslip-wrap {
-  font-family: Arial, sans-serif;
-  font-size: 11px;
-  color: #111;
-  padding: 28px 32px;
-  max-width: 680px;
-  margin: 0 auto;
-}
-
-.payslip-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  border-bottom: 2px solid #c8f135;
-  padding-bottom: 14px;
-  margin-bottom: 18px;
-}
-
-.payslip-company { font-size: 15px; font-weight: 700; }
-.payslip-period  { font-size: 11px; color: #555; text-align: right; }
-
-.payslip-employee-box {
-  background: #f5f5f5;
-  border-radius: 6px;
-  padding: 12px 16px;
-  margin-bottom: 18px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px 24px;
-}
-
-.prow { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #eee; }
-.prow:last-child { border-bottom: none; }
-.plabel { color: #555; }
-.pval   { font-weight: 600; }
-.pval.total { font-size: 13px; color: #0f0f11; }
-.pval.net   { font-size: 14px; font-weight: 700; color: #2a7a40; }
-
-.payslip-section-title {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: #888;
-  margin: 14px 0 6px;
-}
-
-.payslip-footer {
-  margin-top: 28px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 32px;
-}
-
-.sig-line {
-  border-top: 1px solid #333;
-  padding-top: 6px;
-  font-size: 10px;
-  color: #555;
-  text-align: center;
-  margin-top: 32px;
+  color: var(--accent-bright);
 }
 
 /* ── LOADING PULSE ── */
 @keyframes loadingPulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.4; }
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 700px) {
+  .payroll-controls { flex-direction: column; align-items: flex-start; }
+  .payroll-summary-bar { gap: 20px; }
+  .section-header { flex-direction: column; align-items: flex-start; gap: 12px; }
 }
