@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>StockDesk — Payroll</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<title>SIS — Payroll Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 <link rel="stylesheet" href="styles.css">
-<link rel="stylesheet" href="payroll.css">
+<link rel="stylesheet" href="payrollstyles.css">
 </head>
 <body>
 <div class="app">
@@ -21,7 +21,7 @@
   <header>
     <div class="logo">
       <div class="logo-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#0f0f11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <rect x="2" y="3" width="20" height="18" rx="2"/>
           <path d="M8 3v18M16 3v18M2 9h20M2 15h20"/>
         </svg>
@@ -32,9 +32,9 @@
       </div>
     </div>
     <div class="header-actions">
-      <div id="userChip" style="display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:12px;color:var(--text-muted);">
+      <div id="userChip" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);">
         <span id="userChipName" style="color:var(--text)"></span>
-        <span id="userChipRole" style="font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:rgba(200,241,53,0.1);color:var(--accent);border:1px solid rgba(200,241,53,0.2);"></span>
+        <span id="userChipRole" style="font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:rgba(59,130,246,0.1);color:var(--accent-bright);border:1px solid rgba(59,130,246,0.2);"></span>
       </div>
       <button class="btn btn-ghost" onclick="AUTH.logout()" style="padding:8px 12px;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
