@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────
-   SIS — payrollstyles.css
+   SIS — payrollstyles.css  (Enhanced)
    Payroll UI — aligned to SIS brand system
    ───────────────────────────────────────── */
 
@@ -52,12 +52,24 @@
   letter-spacing: 0.2px;
 }
 
-.ptab:hover { color: var(--text); border-color: var(--border-bright); background: var(--surface3); }
+.ptab:hover {
+  color: var(--text);
+  border-color: var(--border-bright);
+  background: var(--surface3);
+}
+
 .ptab.active {
   background: linear-gradient(135deg, var(--accent-dim), var(--accent));
   color: #fff;
   border-color: var(--accent);
   box-shadow: 0 2px 10px rgba(59,130,246,0.25);
+}
+
+/* Pay-type buttons slightly different active style */
+.pay-type-btn.active {
+  background: linear-gradient(135deg, #1e1b4b, #312e81);
+  border-color: #6d28d9;
+  box-shadow: 0 2px 10px rgba(109,40,217,0.25);
 }
 
 /* ── SECTION HEADER ── */
@@ -88,7 +100,7 @@
 .payroll-controls {
   display: flex;
   gap: 20px;
-  align-items: flex-end;
+  align-items: flex-start;
   flex-wrap: wrap;
   margin-bottom: 24px;
   padding: 20px;
@@ -97,12 +109,15 @@
   border-radius: var(--radius-lg);
 }
 
-.payroll-controls .form-group label {
+.payroll-controls .form-group label,
+.payroll-controls > .form-group > label {
   font-size: 10px;
   font-family: 'JetBrains Mono', monospace;
   text-transform: uppercase;
   letter-spacing: 1.5px;
   color: var(--text-muted);
+  display: block;
+  margin-bottom: 6px;
 }
 
 .payroll-controls input[type="month"] {
@@ -120,6 +135,30 @@
 .payroll-controls input[type="month"]:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* ── TAX MODE INFO NOTE ── */
+.tax-mode-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.5px;
+}
+
+.tax-mode-note.bir {
+  background: rgba(59,130,246,0.08);
+  color: var(--accent-bright);
+  border: 1px solid rgba(59,130,246,0.18);
+}
+
+.tax-mode-note.flat {
+  background: rgba(251,191,36,0.08);
+  color: #fbbf24;
+  border: 1px solid rgba(251,191,36,0.18);
 }
 
 /* ── SUMMARY BAR ── */
@@ -160,11 +199,12 @@
 .summary-val.accent { color: var(--accent-bright); }
 
 /* ── EMPLOYEE STATUS BADGES ── */
-.badge-active   {
+.badge-active {
   background: rgba(52,211,153,0.1);
   color: var(--green);
   border: 1px solid rgba(52,211,153,0.2);
 }
+
 .badge-inactive {
   background: rgba(248,113,113,0.1);
   color: var(--red);
@@ -179,6 +219,92 @@
   color: var(--accent-bright);
 }
 
+/* ── GOVERNMENT CONTRIBUTION TOGGLES ── */
+.gov-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.gov-toggle input[type="checkbox"] {
+  display: none;
+}
+
+.gov-toggle-track {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  border-radius: 99px;
+  background: var(--surface3, #1e293b);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.gov-toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform 0.2s, background 0.2s;
+}
+
+.gov-toggle input:checked ~ .gov-toggle-track {
+  background: rgba(52,211,153,0.18);
+  border-color: var(--green, #34d399);
+}
+
+.gov-toggle input:checked ~ .gov-toggle-track::after {
+  background: var(--green, #34d399);
+  transform: translateX(14px);
+}
+
+.gov-toggle-label {
+  font-family: 'Barlow', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 72px;
+}
+
+.gov-toggle-note {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.2px;
+}
+
+/* ── DTR UPLOAD ZONES ── */
+.dtr-upload-zone {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 16px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  margin-bottom: 20px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.dtr-upload-zone:hover {
+  border-color: var(--accent);
+  background: rgba(59,130,246,0.03);
+}
+
+/* ── EVENT TYPE HIGHLIGHT ── */
+.emp-type-event {
+  background: rgba(167,139,250,0.06);
+  border-left: 2px solid #a78bfa;
+}
+
 /* ── LOADING PULSE ── */
 @keyframes loadingPulse {
   0%, 100% { opacity: 1; }
@@ -187,7 +313,8 @@
 
 /* ── RESPONSIVE ── */
 @media (max-width: 700px) {
-  .payroll-controls { flex-direction: column; align-items: flex-start; }
+  .payroll-controls   { flex-direction: column; align-items: flex-start; }
   .payroll-summary-bar { gap: 20px; }
-  .section-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .section-header     { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .payroll-tabs       { flex-wrap: wrap; }
 }

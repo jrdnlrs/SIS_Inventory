@@ -37,11 +37,7 @@
         <span id="userChipRole" style="font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:rgba(59,130,246,0.1);color:var(--accent-bright);border:1px solid rgba(59,130,246,0.2);"></span>
       </div>
       <button class="btn btn-ghost" onclick="AUTH.logout()" style="padding:8px 12px;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
-          <polyline points="16 17 21 12 16 7"/>
-          <line x1="21" y1="12" x2="9" y2="12"/>
-        </svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         Sign Out
       </button>
     </div>
@@ -61,12 +57,23 @@
 
   <!-- PAYROLL TABS -->
   <div class="payroll-tabs">
-    <button class="ptab active" onclick="switchTab('employees', this)">Employees</button>
-    <button class="ptab" onclick="switchTab('payroll', this)">Run Payroll</button>
-    <button class="ptab" onclick="switchTab('history', this)">History</button>
+    <button class="ptab active" onclick="switchTab('employees', this)">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-1px"><circle cx="12" cy="8" r="5"/><path d="M3 21c0-4 4-7 9-7s9 3 9 7"/></svg>
+      Employees
+    </button>
+    <button class="ptab" onclick="switchTab('payroll', this)">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-1px"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      Run Payroll
+    </button>
+    <button class="ptab" onclick="switchTab('history', this)">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-1px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      History
+    </button>
   </div>
 
-  <!-- ── EMPLOYEES TAB ── -->
+  <!-- ══════════════════════════════════════════ -->
+  <!-- EMPLOYEES TAB                              -->
+  <!-- ══════════════════════════════════════════ -->
   <div id="tab-employees" class="ptab-content">
     <div class="section-header">
       <div>
@@ -85,7 +92,8 @@
           <tr>
             <th>Name</th>
             <th>Position</th>
-            <th>Daily Rate</th>
+            <th>Type</th>
+            <th>Rate</th>
             <th>SSS No.</th>
             <th>PhilHealth No.</th>
             <th>Pag-IBIG No.</th>
@@ -98,40 +106,137 @@
     </div>
   </div>
 
-  <!-- ── RUN PAYROLL TAB ── -->
+  <!-- ══════════════════════════════════════════ -->
+  <!-- RUN PAYROLL TAB                            -->
+  <!-- ══════════════════════════════════════════ -->
   <div id="tab-payroll" class="ptab-content" style="display:none">
     <div class="section-header">
       <div>
         <div class="section-title">Run Payroll</div>
-        <div class="section-sub">Upload DTR → compute → generate payslips</div>
+        <div class="section-sub">Select type → upload DTR → compute → save & generate payslips</div>
       </div>
     </div>
 
-    <!-- Period selector -->
-    <div class="payroll-controls">
-      <div class="form-group" style="min-width:180px">
-        <label>Pay Month</label>
+    <!-- ── Tax Mode & Period Controls ── -->
+    <div class="payroll-controls" style="gap:24px;align-items:flex-start;">
+
+      <!-- Period -->
+      <div class="form-group">
+        <label>Pay Period</label>
         <input type="month" id="payMonth" />
       </div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        <label style="font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted)">DTR File</label>
-        <div style="display:flex;gap:10px;align-items:center">
-          <input type="file" id="dtrFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="onDtrFileChosen(event)" />
-          <button class="btn btn-ghost" onclick="document.getElementById('dtrFileInput').click()">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            Upload DTR
+
+      <!-- Pay Run Label -->
+      <div class="form-group">
+        <label>Run Label <span style="color:var(--text-muted);font-size:10px">(optional)</span></label>
+        <input type="text" id="payLabel" placeholder="e.g. June 2025 — Regular" style="padding:9px 13px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;width:200px;transition:border-color .15s,box-shadow .15s;" onfocus="this.style.borderColor='var(--accent)';this.style.boxShadow='0 0 0 3px var(--accent-glow)'" onblur="this.style.borderColor='var(--border)';this.style.boxShadow='none'" />
+      </div>
+
+      <!-- Government Contributions -->
+      <div class="form-group">
+        <label>Government Contributions</label>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:2px">
+          <label class="gov-toggle">
+            <input type="checkbox" id="chkSss" onchange="toggleGovContrib('sss', this)" />
+            <span class="gov-toggle-track"></span>
+            <span class="gov-toggle-label">SSS</span>
+            <span class="gov-toggle-note">4.5% of MSC, max ₱1,575</span>
+          </label>
+          <label class="gov-toggle">
+            <input type="checkbox" id="chkPhilhealth" onchange="toggleGovContrib('philhealth', this)" />
+            <span class="gov-toggle-track"></span>
+            <span class="gov-toggle-label">PhilHealth</span>
+            <span class="gov-toggle-note">2.5% of salary, max ₱2,500</span>
+          </label>
+          <label class="gov-toggle">
+            <input type="checkbox" id="chkPagibig" onchange="toggleGovContrib('pagibig', this)" />
+            <span class="gov-toggle-track"></span>
+            <span class="gov-toggle-label">Pag-IBIG</span>
+            <span class="gov-toggle-note">₱100 fixed</span>
+          </label>
+        </div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:6px;font-family:'JetBrains Mono',monospace">
+          Enable when company is registered
+        </div>
+      </div>
+
+      <!-- Tax Mode -->
+      <div class="form-group">
+        <label>Withholding Tax Mode</label>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <button id="btnTaxBir" class="ptab active" style="padding:7px 14px;font-size:12px" onclick="setTaxMode('bir')">
+            BIR 2025 Graduated
           </button>
-          <button class="btn btn-ghost" onclick="downloadDtrTemplate()">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            DTR Template
+          <button id="btnTaxFlat" class="ptab" style="padding:7px 14px;font-size:12px" onclick="setTaxMode('flat')">
+            Flat Rate
           </button>
+          <div id="flatRateRow" style="display:none;align-items:center;gap:8px;margin-top:0">
+            <input type="range" min="1" max="35" value="10" step="1"
+              oninput="updateFlatRate(this.value)"
+              style="width:100px;accent-color:var(--accent);cursor:pointer" />
+            <span id="flatRateDisplay" style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent-bright);min-width:32px">10%</span>
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:5px;font-family:'JetBrains Mono',monospace">
+          Switch to Flat Rate while awaiting BIR registration
         </div>
       </div>
     </div>
 
-    <!-- DTR preview + compute -->
+    <!-- ── Employee Type Sub-tabs ── -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:10px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);margin-bottom:8px">Payroll Type</div>
+      <div style="display:flex;gap:8px">
+        <button class="pay-type-btn ptab active" onclick="switchPayType('regular', this)" style="display:flex;align-items:center;gap:7px">
+          <span style="width:8px;height:8px;border-radius:50%;background:#34d399;display:inline-block"></span>
+          Regular Employees
+        </button>
+        <button class="pay-type-btn ptab" onclick="switchPayType('event', this)" style="display:flex;align-items:center;gap:7px">
+          <span style="width:8px;height:8px;border-radius:50%;background:#a78bfa;display:inline-block"></span>
+          Event-Based Employees
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Regular DTR Section ── -->
+    <div id="dtrRegularSection">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+        <input type="file" id="dtrFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="onDtrFileChosen(event)" />
+        <button class="btn btn-ghost" onclick="document.getElementById('dtrFileInput').click()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Upload Regular DTR
+        </button>
+        <button class="btn btn-ghost" onclick="downloadDtrTemplate()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Template
+        </button>
+        <span style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace">
+          Columns: Name · Days Present · Working Days
+        </span>
+      </div>
+    </div>
+
+    <!-- ── Event DTR Section ── -->
+    <div id="dtrEventSection" style="display:none">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+        <input type="file" id="eventDtrFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="onEventDtrFileChosen(event)" />
+        <button class="btn btn-ghost" onclick="document.getElementById('eventDtrFileInput').click()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Upload Event DTR
+        </button>
+        <button class="btn btn-ghost" onclick="downloadEventDtrTemplate()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Template
+        </button>
+        <span style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace">
+          Columns: Name · Event Name · Pay (optional, uses employee default)
+        </span>
+      </div>
+    </div>
+
+    <!-- ── DTR Preview + Compute ── -->
     <div id="dtrPreview" style="display:none">
-      <div class="section-header" style="margin-top:24px">
+      <div class="section-header" style="margin-top:8px">
         <div class="section-title" style="font-size:14px">DTR Preview</div>
         <button class="btn btn-primary" onclick="computePayroll()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -143,8 +248,8 @@
           <thead>
             <tr>
               <th>Employee</th>
-              <th>Days Present</th>
-              <th>Daily Rate</th>
+              <th>Attendance / Event</th>
+              <th>Rate</th>
               <th>Gross Pay</th>
               <th>SSS</th>
               <th>PhilHealth</th>
@@ -157,10 +262,25 @@
           <tbody id="dtrPreviewBody"></tbody>
         </table>
       </div>
+
+      <!-- Summary Bar -->
       <div id="payrollSummaryBar" style="display:none" class="payroll-summary-bar">
-        <div class="summary-item"><span class="summary-label">Total Gross</span><span class="summary-val" id="sumGross">₱0</span></div>
-        <div class="summary-item"><span class="summary-label">Total Deductions</span><span class="summary-val" id="sumDed">₱0</span></div>
-        <div class="summary-item"><span class="summary-label">Total Net Pay</span><span class="summary-val accent" id="sumNet">₱0</span></div>
+        <div class="summary-item">
+          <span class="summary-label">Employees</span>
+          <span class="summary-val" id="sumEmpCount" style="font-size:16px">0</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Total Gross</span>
+          <span class="summary-val" id="sumGross">₱0</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Total Deductions</span>
+          <span class="summary-val" id="sumDed">₱0</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Total Net Pay</span>
+          <span class="summary-val accent" id="sumNet">₱0</span>
+        </div>
         <button class="btn btn-primary" onclick="saveAndGeneratePayslips()" style="margin-left:auto">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Save & Download All Payslips
@@ -169,7 +289,9 @@
     </div>
   </div>
 
-  <!-- ── HISTORY TAB ── -->
+  <!-- ══════════════════════════════════════════ -->
+  <!-- HISTORY TAB                               -->
+  <!-- ══════════════════════════════════════════ -->
   <div id="tab-history" class="ptab-content" style="display:none">
     <div class="section-header">
       <div class="section-title">Payroll History</div>
@@ -178,7 +300,9 @@
       <table>
         <thead>
           <tr>
-            <th>Period</th>
+            <th>Period / Label</th>
+            <th>Type</th>
+            <th>Tax Mode</th>
             <th>Employees</th>
             <th>Total Gross</th>
             <th>Total Net</th>
@@ -191,44 +315,79 @@
     </div>
   </div>
 
-</div>
+</div><!-- /.app -->
 
-<!-- EMPLOYEE MODAL -->
+<!-- ══════════════════════════════════════════ -->
+<!-- EMPLOYEE MODAL                            -->
+<!-- ══════════════════════════════════════════ -->
 <div class="overlay" id="empOverlay" onclick="closeEmpModalOutside(event)">
   <div class="modal">
     <h2><span class="dot"></span> <span id="empModalTitle">Add Employee</span></h2>
     <div class="form-grid">
+
+      <!-- Full Name -->
       <div class="form-group form-full">
         <label>Full Name <span style="color:var(--red)">*</span></label>
         <input id="efName" placeholder="e.g. Juan dela Cruz" />
       </div>
+
+      <!-- Position -->
       <div class="form-group">
         <label>Position</label>
         <input id="efPosition" placeholder="e.g. IT Technician" />
       </div>
+
+      <!-- Employee Type -->
       <div class="form-group">
+        <label>Employee Type <span style="color:var(--red)">*</span></label>
+        <select id="efType" onchange="toggleEmpTypeFields()">
+          <option value="regular">Regular (Fixed Schedule)</option>
+          <option value="event">Event-Based (Per Project/Event)</option>
+        </select>
+      </div>
+
+      <!-- Daily Rate (Regular) -->
+      <div class="form-group" id="rateRegularGroup">
         <label>Daily Rate (₱) <span style="color:var(--red)">*</span></label>
         <input id="efRate" type="number" min="0" placeholder="e.g. 800" />
       </div>
+
+      <!-- Event Rate (Event-based) -->
+      <div class="form-group" id="rateEventGroup" style="display:none">
+        <label>Default Event Pay (₱) <span style="color:var(--red)">*</span></label>
+        <input id="efEventRate" type="number" min="0" placeholder="e.g. 3000" />
+        <div style="font-size:10px;color:var(--text-muted);margin-top:4px;font-family:'JetBrains Mono',monospace">
+          Can be overridden per event in the DTR
+        </div>
+      </div>
+
+      <!-- SSS -->
       <div class="form-group">
         <label>SSS Number</label>
         <input id="efSss" placeholder="XX-XXXXXXX-X" />
       </div>
+
+      <!-- PhilHealth -->
       <div class="form-group">
         <label>PhilHealth Number</label>
         <input id="efPhilhealth" placeholder="XX-XXXXXXXXX-X" />
       </div>
+
+      <!-- Pag-IBIG -->
       <div class="form-group">
         <label>Pag-IBIG Number</label>
         <input id="efPagibig" placeholder="XXXX-XXXX-XXXX" />
       </div>
-      <div class="form-group form-full">
+
+      <!-- Status -->
+      <div class="form-group">
         <label>Status</label>
         <select id="efStatus">
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
       </div>
+
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeEmpModal()">Cancel</button>
