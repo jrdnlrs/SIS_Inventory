@@ -159,8 +159,10 @@ function computeWithholdingTax(monthlyGross, sss, philhealth, pagibig) {
  * daysPresent / workingDays prorates the monthly salary.
  */
 function computePayForEmployee(emp, daysPresent, workingDays) {
+  if (!daysPresent || daysPresent <= 0) {
+    return { gross: 0, sss: 0, philhealth: 0, pagibig: 0, tax: 0, totalDed: 0, net: 0, daysPresent: 0, workingDays };
+  }
   const gross        = Math.round(emp.daily_rate * daysPresent * 100) / 100;
-  // Monthly equivalent for deduction purposes (extrapolate to full month)
   const monthlyEquiv = workingDays > 0 ? (gross / daysPresent) * workingDays : gross;
 
   const sss          = computeSSS(monthlyEquiv);
@@ -304,8 +306,14 @@ async function deleteEmployee(id) {
 // ═══════════════════════════════════════════
 
 /**
- * Expected DTR columns (case-insensitive):
- *   Name | Days Present | Working Days (optional, defaults to 26)
+ * Parse the actual SIS DTR format:
+ * - Multi-sheet workbook — each sheet = one work day
+ * - Row 1:  title (skip)
+ * - Row 3:  headers — col B = "Employee Name", col G = "Status"
+ * - Row 4+: data rows — skip rows with empty name
+ * - Status: P = Present, L = Late (both count as worked), A/blank = Absent
+ *
+ * Output: dtrRows[] = [{ name, daysPresent, workingDays, sheets{} }]
  */
 function onDtrFileChosen(e) {
   const file = e.target.files[0];
@@ -314,56 +322,127 @@ function onDtrFileChosen(e) {
   const reader = new FileReader();
   reader.onload = function (evt) {
     try {
-      let rows = [];
+      const wb = XLSX.read(evt.target.result, { type: 'binary' });
 
-      if (file.name.endsWith('.csv')) {
-        // Parse CSV manually
-        const text  = evt.target.result;
-        const lines = text.trim().split('\n');
-        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-        rows = lines.slice(1).map(line => {
-          const vals = line.split(',');
-          const obj  = {};
-          headers.forEach((h, i) => { obj[h] = (vals[i] || '').trim(); });
-          return obj;
-        });
-      } else {
-        const wb      = XLSX.read(evt.target.result, { type: 'binary' });
-        const ws      = wb.Sheets[wb.SheetNames[0]];
-        const rawRows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-        rows = rawRows.map(r => {
-          const obj = {};
-          Object.entries(r).forEach(([k, v]) => { obj[k.trim().toLowerCase()] = String(v).trim(); });
-          return obj;
-        });
+      // Filter to sheets with actual attendance data (≥ 4 rows)
+      const daySheets = wb.SheetNames.filter(name => {
+        const ws  = wb.Sheets[name];
+        const ref = ws['!ref'];
+        if (!ref) return false;
+        const range = XLSX.utils.decode_range(ref);
+        return range.e.r >= 3;
+      });
+
+      if (!daySheets.length) {
+        toast('No valid attendance sheets found in this file.', 'error');
+        return;
       }
 
-      if (!rows.length) { toast('DTR file appears empty.', 'error'); return; }
+      const empMap     = {};
+      const workingDays = daySheets.length;
 
-      // Normalise rows — look for name + days present columns
-      dtrRows = rows.map((r, idx) => {
-        const name = r['name'] || r['employee'] || r['employee name'] || '';
-        const days = parseFloat(r['days present'] || r['days'] || r['present'] || 0);
-        const workDays = parseFloat(r['working days'] || r['work days'] || 26);
-        return { _row: idx + 2, name: name.trim(), daysPresent: days, workingDays: workDays };
-      }).filter(r => r.name);
+      daySheets.forEach(sheetName => {
+        const ws      = wb.Sheets[sheetName];
+        const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+        // Find header row containing "Employee Name"
+        let headerRow = 2;
+        for (let i = 0; i < Math.min(6, rawRows.length); i++) {
+          if (rawRows[i] && rawRows[i].some(v => typeof v === 'string' && v.toLowerCase().includes('employee name'))) {
+            headerRow = i;
+            break;
+          }
+        }
+
+        const headers    = rawRows[headerRow] || [];
+        const nameColIdx = headers.findIndex(h => typeof h === 'string' && h.toLowerCase().includes('employee name'));
+        const statColIdx = headers.findIndex(h => typeof h === 'string' && h.toLowerCase() === 'status');
+        const nameCol    = nameColIdx !== -1 ? nameColIdx : 1;
+        const statCol    = statColIdx !== -1 ? statColIdx : 6;
+
+        for (let i = headerRow + 1; i < rawRows.length; i++) {
+          const row     = rawRows[i];
+          if (!row) continue;
+          const rawName = row[nameCol];
+          if (!rawName || typeof rawName !== 'string' || !rawName.trim()) continue;
+
+          const name   = rawName.trim().replace(/\s+/g, ' ').replace(/\*$/, '').trim();
+          const status = (row[statCol] || '').toString().trim().toUpperCase();
+          const worked = status === 'P' || status === 'L';
+          const key    = normalizeName(name);
+
+          if (!empMap[key]) empMap[key] = { name, daysPresent: 0, sheets: {} };
+          if (worked) empMap[key].daysPresent++;
+          empMap[key].sheets[sheetName] = status || 'A';
+        }
+      });
+
+      dtrRows = Object.values(empMap).map(r => ({
+        name:        r.name,
+        daysPresent: r.daysPresent,
+        workingDays,
+        sheets:      r.sheets,
+      }));
 
       if (!dtrRows.length) {
-        toast('Could not find a "Name" column in your DTR. Check the template.', 'error');
+        toast('Could not find any employee rows in the DTR.', 'error');
         return;
       }
 
       renderDtrPreview();
       document.getElementById('dtrPreview').style.display = 'block';
-      toast(`DTR loaded — ${dtrRows.length} row${dtrRows.length !== 1 ? 's' : ''} found.`, 'success');
+      toast(`DTR loaded — ${dtrRows.length} employees across ${workingDays} day${workingDays !== 1 ? 's' : ''}.`, 'success');
+
     } catch (err) {
       console.error(err);
       toast('Could not read the DTR file.', 'error');
     }
   };
+  reader.readAsBinaryString(file);
+}
 
-  if (file.name.endsWith('.csv')) reader.readAsText(file);
-  else reader.readAsBinaryString(file);
+/**
+ * Normalize name for fuzzy matching.
+ * Handles "Last, First" and "First Last" by sorting tokens.
+ * Strips asterisks, extra spaces.
+ */
+function normalizeName(name) {
+  if (!name) return '';
+  let n = name.toLowerCase().trim().replace(/\*/g, '').replace(/\s+/g, ' ');
+  if (n.includes(',')) {
+    n = n.split(',').map(p => p.trim()).join(' ');
+  }
+  return n.split(' ').filter(Boolean).sort().join(' ');
+}
+
+/**
+ * Match a DTR name to an employee record.
+ * Handles "Last, First" vs "First Last", trailing spaces, asterisks.
+ */
+function matchEmployee(name) {
+  if (!name) return null;
+  const key = normalizeName(name);
+
+  // 1. Exact normalized match
+  let emp = employees.find(e => e.status === 'active' && normalizeName(e.name) === key);
+  if (emp) return emp;
+
+  // 2. All DTR tokens appear in employee key
+  const dtrTokens = key.split(' ').filter(t => t.length > 1);
+  emp = employees.find(e => {
+    if (e.status !== 'active') return false;
+    const empKey = normalizeName(e.name);
+    return dtrTokens.every(t => empKey.includes(t));
+  });
+  if (emp) return emp;
+
+  // 3. All employee tokens appear in DTR key (handles abbreviated names)
+  emp = employees.find(e => {
+    if (e.status !== 'active') return false;
+    const empTokens = normalizeName(e.name).split(' ').filter(t => t.length > 1);
+    return empTokens.length >= 2 && empTokens.every(t => key.includes(t));
+  });
+  return emp || null;
 }
 
 function renderDtrPreview() {
@@ -371,37 +450,35 @@ function renderDtrPreview() {
   tbody.innerHTML = dtrRows.map(r => {
     const emp = matchEmployee(r.name);
     const tag = emp
-      ? `<span style="color:var(--green);font-size:11px">✓ ${emp.name}</span>`
-      : `<span style="color:var(--red);font-size:11px">✗ No match</span>`;
+      ? `<span style="color:var(--green);font-size:11px">✓ matched → ${emp.name}</span>`
+      : `<span style="color:var(--red);font-size:11px">✗ No match — add to Employees tab</span>`;
+
+    const indicators = Object.entries(r.sheets || {}).map(([sheet, status]) => {
+      const color = status === 'P' ? 'var(--green)' : status === 'L' ? 'var(--orange)' : 'var(--red)';
+      return `<span title="${sheet}: ${status}" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${color};margin:1px;"></span>`;
+    }).join('');
+
     return `
       <tr>
-        <td><strong>${r.name}</strong><br><span style="font-size:11px;color:var(--text-muted)">${tag}</span></td>
-        <td class="mono">${r.daysPresent}</td>
+        <td>
+          <strong>${r.name}</strong><br>
+          <span style="font-size:11px;display:block;margin-top:2px">${tag}</span>
+          <div style="margin-top:4px">${indicators}</div>
+        </td>
+        <td class="mono">${r.daysPresent} / ${r.workingDays}</td>
         <td class="mono">${emp ? peso(emp.daily_rate) : '—'}</td>
-        <td colspan="6" style="color:var(--text-dim);font-size:12px">— compute to see —</td>
+        <td colspan="6" style="color:var(--text-dim);font-size:12px">— click Compute Payroll —</td>
       </tr>`;
   }).join('');
-}
-
-function matchEmployee(name) {
-  if (!name) return null;
-  const n = name.toLowerCase().trim();
-  // Exact match first
-  let emp = employees.find(e => e.name.toLowerCase() === n && e.status === 'active');
-  if (emp) return emp;
-  // Partial match
-  emp = employees.find(e => e.name.toLowerCase().includes(n) || n.includes(e.name.toLowerCase()));
-  return emp && emp.status === 'active' ? emp : null;
 }
 
 function computePayroll() {
   const month = document.getElementById('payMonth').value;
   if (!month) { toast('Please select a pay month first.', 'error'); return; }
-  if (!employees.length) { toast('No active employees found. Add employees first.', 'error'); return; }
+  if (!employees.length) { toast('No active employees. Add employees first.', 'error'); return; }
 
   computedRows = [];
-  let totalGross = 0, totalDed = 0, totalNet = 0;
-  let unmatched = 0;
+  let totalGross = 0, totalDed = 0, totalNet = 0, unmatched = 0;
 
   const tbody = document.getElementById('dtrPreviewBody');
   tbody.innerHTML = '';
@@ -413,7 +490,7 @@ function computePayroll() {
       tbody.innerHTML += `
         <tr style="opacity:.5">
           <td><strong>${r.name}</strong><br><span style="color:var(--red);font-size:11px">✗ No match — skipped</span></td>
-          <td>${r.daysPresent}</td>
+          <td>${r.daysPresent} / ${r.workingDays}</td>
           <td colspan="8" style="color:var(--text-dim)">—</td>
         </tr>`;
       return;
@@ -427,7 +504,11 @@ function computePayroll() {
 
     tbody.innerHTML += `
       <tr>
-        <td><strong>${emp.name}</strong><br><span style="font-size:11px;color:var(--text-muted)">${emp.position || ''}</span></td>
+        <td>
+          <strong>${emp.name}</strong><br>
+          <span style="font-size:11px;color:var(--text-muted)">${emp.position || ''}</span><br>
+          <span style="font-size:10px;color:var(--text-dim)">DTR: ${r.name}</span>
+        </td>
         <td class="mono">${c.daysPresent} / ${c.workingDays}</td>
         <td class="mono">${peso(emp.daily_rate)}</td>
         <td class="mono" style="color:var(--text)">${peso(c.gross)}</td>
@@ -438,21 +519,24 @@ function computePayroll() {
         <td class="mono" style="color:var(--accent);font-weight:600">${peso(c.net)}</td>
         <td>
           <button class="btn btn-edit" style="font-size:11px;padding:4px 10px"
-            onclick='generatePayslipPDF(${JSON.stringify({ ...c, emp: { name: emp.name, position: emp.position, sss_no: emp.sss_no, philhealth_no: emp.philhealth_no, pagibig_no: emp.pagibig_no, daily_rate: emp.daily_rate } })}, "${month}")'>
+            onclick='generatePayslipPDF(${JSON.stringify({
+              ...c,
+              emp: { name: emp.name, position: emp.position, sss_no: emp.sss_no,
+                     philhealth_no: emp.philhealth_no, pagibig_no: emp.pagibig_no, daily_rate: emp.daily_rate }
+            })}, "${month}")'>
             Payslip
           </button>
         </td>
       </tr>`;
   });
 
-  // Summary bar
   document.getElementById('sumGross').textContent = peso(totalGross);
   document.getElementById('sumDed').textContent   = peso(totalDed);
   document.getElementById('sumNet').textContent   = peso(totalNet);
   document.getElementById('payrollSummaryBar').style.display = 'flex';
 
-  if (unmatched > 0) toast(`${unmatched} row${unmatched > 1 ? 's' : ''} could not be matched to an employee and were skipped.`, 'error');
-  toast(`Payroll computed for ${computedRows.length} employee${computedRows.length !== 1 ? 's' : ''}.`, 'success');
+  if (unmatched) toast(`${unmatched} row${unmatched > 1 ? 's' : ''} not matched to any employee — skipped.`, 'error');
+  toast(`Payroll computed — ${computedRows.length} employee${computedRows.length !== 1 ? 's' : ''}.`, 'success');
 }
 
 // ═══════════════════════════════════════════
@@ -617,16 +701,16 @@ async function saveAndGeneratePayslips() {
 
   setLoading(true);
   try {
-    // Save payroll period
+    const periodId = uid();
     const period = {
+      id:             periodId,
       month,
       employee_count: computedRows.length,
-      total_gross: computedRows.reduce((s, r) => s + r.gross, 0),
-      total_net:   computedRows.reduce((s, r) => s + r.net, 0),
+      total_gross:    computedRows.reduce((s, r) => s + r.gross, 0),
+      total_net:      computedRows.reduce((s, r) => s + r.net, 0),
     };
 
-    const [savedPeriod] = await sbPost(PERIOD_URL, period);
-    const periodId = savedPeriod?.id || period.id;
+    await sbPost(PERIOD_URL, period);
 
     // Save individual records
     const records = computedRows.map(r => ({
@@ -741,16 +825,41 @@ async function viewPeriodRecords(periodId, month) {
 
 // ── DTR TEMPLATE DOWNLOAD ──────────────────
 function downloadDtrTemplate() {
-  const data = [
-    { 'Name': 'Juan dela Cruz', 'Days Present': 22, 'Working Days': 26 },
-    { 'Name': 'Maria Santos',   'Days Present': 20, 'Working Days': 26 },
-  ];
-  const ws = XLSX.utils.json_to_sheet(data);
-  ws['!cols'] = [{ wch: 28 }, { wch: 14 }, { wch: 14 }];
+  // Mirrors the actual SIS DTR format so users can use it as a reference
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'DTR');
-  XLSX.writeFile(wb, 'DTR_Template.xlsx');
-  toast('DTR template downloaded.', 'success');
+
+  const sampleSheet = [
+    ['ATTENDANCE (Month DD, YYYY) EVENT NAME', null, null, null, null, null, null, null, null, null],
+    [null],
+    ['No.', 'Employee Name', 'Role', 'Time In', 'Time Out', 'Working Hours', 'Status', 'Remarks', null, 'Legends for Status'],
+    [1, 'dela Cruz, Juan', 'Golf Operator', '01:15', '08:00', '', 'P', null, null, 'P = Present'],
+    [2, 'Santos, Maria', 'Golf Operator', '01:15', '08:00', '', 'P', null, null, 'A = Absent'],
+    [3, 'Reyes, Jose', 'Golf Operator', '01:45', '08:00', '', 'L', null, null, 'L = Late'],
+    [4, 'Garcia, Ana', 'Golf Operator', null, null, '', 'A', null, null, null],
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(sampleSheet);
+  ws['!cols'] = [
+    { wch: 5 }, { wch: 28 }, { wch: 16 }, { wch: 10 }, { wch: 10 },
+    { wch: 14 }, { wch: 8 }, { wch: 14 }, { wch: 5 }, { wch: 22 },
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Day 1 - Sample');
+
+  // Add a second sample sheet so users understand the multi-sheet format
+  const ws2 = XLSX.utils.aoa_to_sheet([
+    ['ATTENDANCE (Month DD, YYYY) EVENT NAME - Day 2', null, null, null, null, null, null, null, null, null],
+    [null],
+    ['No.', 'Employee Name', 'Role', 'Time In', 'Time Out', 'Working Hours', 'Status', 'Remarks', null, 'Legends for Status'],
+    [1, 'dela Cruz, Juan', 'Golf Operator', '01:15', '08:00', '', 'P', null, null, 'P = Present'],
+    [2, 'Santos, Maria', 'Golf Operator', null, null, '', 'A', null, null, 'A = Absent'],
+    [3, 'Reyes, Jose', 'Golf Operator', '01:15', '08:00', '', 'P', null, null, 'L = Late'],
+    [4, 'Garcia, Ana', 'Golf Operator', '01:15', '08:00', '', 'P', null, null, null],
+  ]);
+  XLSX.utils.book_append_sheet(wb, ws2, 'Day 2 - Sample');
+
+  XLSX.writeFile(wb, 'DTR_Template_SIS.xlsx');
+  toast('DTR template downloaded — each sheet = one work day.', 'success');
 }
 
 // ═══════════════════════════════════════════
