@@ -958,6 +958,10 @@ document.addEventListener('DOMContentLoaded', function () {
     if (el) el.style.display = isAdmin ? '' : 'none';
   });
 
+  // Show Payroll tab only for admins
+  const navPayroll = document.getElementById('navPayroll');
+  if (navPayroll) navPayroll.style.display = isAdmin ? '' : 'none';
+
   // Populate user chip in header
   const chipName = document.getElementById('userChipName');
   const chipRole = document.getElementById('userChipRole');
