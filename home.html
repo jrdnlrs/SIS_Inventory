@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIS — Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="home.css">
+</head>
+<body>
+<div class="app">
+
+  <div id="loadingBar" style="display:none;position:fixed;top:0;left:0;right:0;height:3px;background:var(--accent);z-index:9999;animation:loadingPulse 1s ease-in-out infinite;"></div>
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="18" rx="2"/>
+          <path d="M8 3v18M16 3v18M2 9h20M2 15h20"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Supreme InfoTech Solutions</h1>
+        <span>Central Hub</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);">
+        <span id="userChipName" style="color:var(--text)"></span>
+        <span id="userChipRole" style="font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:rgba(59,130,246,0.1);color:var(--accent-bright);border:1px solid rgba(59,130,246,0.2);"></span>
+      </div>
+      <button class="btn btn-ghost" onclick="AUTH.logout()" style="padding:8px 12px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Sign Out
+      </button>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════ -->
+  <!-- ADMIN VIEW                            -->
+  <!-- ══════════════════════════════════════ -->
+  <div id="adminView" style="display:none">
+
+    <!-- Welcome -->
+    <div class="hub-welcome">
+      <div>
+        <div class="hub-greeting" id="adminGreeting">Good morning</div>
+        <div class="hub-date" id="hubDate"></div>
+      </div>
+      <div class="hub-tagline">System overview — all modules</div>
+    </div>
+
+    <!-- Stat strip -->
+    <div class="stat-strip" id="adminStatStrip">
+      <div class="stat-pill">
+        <span class="stat-pill-label">Inventory Items</span>
+        <span class="stat-pill-val" id="statInventoryItems">—</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-pill-label">Categories</span>
+        <span class="stat-pill-val" id="statCategories">—</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-pill-label">Total Employees</span>
+        <span class="stat-pill-val" id="statEmployees">—</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-pill-label">Payroll Runs</span>
+        <span class="stat-pill-val" id="statPayrollRuns">—</span>
+      </div>
+    </div>
+
+    <!-- Module grid -->
+    <div class="module-grid">
+
+      <!-- Inventory -->
+      <a href="index.html" class="module-card">
+        <div class="module-card-header">
+          <div class="module-icon" style="background:rgba(59,130,246,0.12);border-color:rgba(59,130,246,0.2)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M8 3v18M16 3v18M2 9h20M2 15h20"/></svg>
+          </div>
+          <span class="module-badge live">Live</span>
+        </div>
+        <div class="module-name">Inventory</div>
+        <div class="module-desc">Track office equipment, supplies, and assets with barcode scanning.</div>
+        <div class="module-stats">
+          <span id="mcInventoryItems">— items</span>
+          <span id="mcCategories">— categories</span>
+        </div>
+        <div class="module-arrow">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </div>
+      </a>
+
+      <!-- Payroll -->
+      <a href="payroll.html" class="module-card">
+        <div class="module-card-header">
+          <div class="module-icon" style="background:rgba(52,211,153,0.1);border-color:rgba(52,211,153,0.2)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          </div>
+          <span class="module-badge live">Live</span>
+        </div>
+        <div class="module-name">Payroll</div>
+        <div class="module-desc">Manage employees, run payroll, compute deductions, and generate payslips.</div>
+        <div class="module-stats">
+          <span id="mcEmployees">— employees</span>
+          <span id="mcPayrollRuns">— payroll runs</span>
+        </div>
+        <div class="module-arrow">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </div>
+      </a>
+
+      <!-- Game Schedules — coming soon -->
+      <div class="module-card coming-soon">
+        <div class="module-card-header">
+          <div class="module-icon" style="background:rgba(167,139,250,0.1);border-color:rgba(167,139,250,0.2)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M16 2v4M8 2v4M2 10h20"/><circle cx="12" cy="15" r="2"/></svg>
+          </div>
+          <span class="module-badge soon">Soon</span>
+        </div>
+        <div class="module-name">Game Schedules</div>
+        <div class="module-desc">Manage and broadcast game schedules, rosters, and event timelines.</div>
+        <div class="module-coming-label">In Development</div>
+      </div>
+
+      <!-- Placeholder 2 -->
+      <div class="module-card coming-soon">
+        <div class="module-card-header">
+          <div class="module-icon" style="background:rgba(251,191,36,0.08);border-color:rgba(251,191,36,0.15)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </div>
+          <span class="module-badge soon">Soon</span>
+        </div>
+        <div class="module-name">Reports</div>
+        <div class="module-desc">Generate consolidated reports across inventory, payroll, and operations.</div>
+        <div class="module-coming-label">In Development</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════ -->
+  <!-- EMPLOYEE VIEW                         -->
+  <!-- ══════════════════════════════════════ -->
+  <div id="employeeView" style="display:none">
+
+    <!-- Hero / Welcome strip -->
+    <div class="emp-hero">
+      <!-- Slideshow -->
+      <div class="emp-slideshow" id="empSlideshow">
+        <div class="slide active" style="background:linear-gradient(135deg,#0d1320,#1a2235)">
+          <div class="slide-content">
+            <div class="slide-label">WELCOME BACK</div>
+            <div class="slide-title" id="empHeroName">—</div>
+            <div class="slide-sub" id="empHeroRole">—</div>
+          </div>
+          <div class="slide-graphic">
+            <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+              <circle cx="60" cy="60" r="56" stroke="rgba(59,130,246,0.15)" stroke-width="1.5"/>
+              <circle cx="60" cy="60" r="40" stroke="rgba(59,130,246,0.1)" stroke-width="1"/>
+              <circle cx="60" cy="42" r="18" fill="rgba(59,130,246,0.12)" stroke="#3b82f6" stroke-width="1.5"/>
+              <path d="M28 95c0-17.7 14.3-32 32-32s32 14.3 32 32" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round"/>
+              <text x="60" y="48" text-anchor="middle" font-family="Barlow" font-size="16" font-weight="700" fill="#60a5fa" id="slideshowInitials">—</text>
+            </svg>
+          </div>
+        </div>
+        <div class="slide" style="background:linear-gradient(135deg,#0f172a,#1e1b4b)">
+          <div class="slide-content">
+            <div class="slide-label">SUPREME INFOTECH SOLUTIONS</div>
+            <div class="slide-title" style="font-size:22px">Building the future,<br>one system at a time.</div>
+            <div class="slide-sub">Your trusted IT partner</div>
+          </div>
+          <div class="slide-graphic" style="opacity:0.15">
+            <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="18" rx="2"/><path d="M8 3v18M16 3v18M2 9h20M2 15h20"/>
+            </svg>
+          </div>
+        </div>
+        <div class="slide" style="background:linear-gradient(135deg,#0a1628,#0d2137)">
+          <div class="slide-content">
+            <div class="slide-label">QUICK REMINDER</div>
+            <div class="slide-title" style="font-size:20px">DTR submitted?</div>
+            <div class="slide-sub">Make sure your attendance records are up to date each pay period.</div>
+          </div>
+          <div class="slide-graphic" style="opacity:0.12">
+            <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2"/><path d="M16 2v4M8 2v4M2 10h20"/><circle cx="12" cy="15" r="2"/>
+            </svg>
+          </div>
+        </div>
+        <!-- Dots -->
+        <div class="slide-dots">
+          <button class="slide-dot active" onclick="goToSlide(0)"></button>
+          <button class="slide-dot" onclick="goToSlide(1)"></button>
+          <button class="slide-dot" onclick="goToSlide(2)"></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Employee info cards -->
+    <div class="emp-cards">
+
+      <!-- Payslip History -->
+      <div class="emp-card">
+        <div class="emp-card-header">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="module-icon" style="width:36px;height:36px;background:rgba(52,211,153,0.1);border-color:rgba(52,211,153,0.2)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+            </div>
+            <div>
+              <div class="emp-card-title">My Payslips</div>
+              <div class="emp-card-sub">Your payroll history</div>
+            </div>
+          </div>
+        </div>
+        <div id="empPayslipList" class="emp-list">
+          <div class="emp-list-loading">Loading payslip history…</div>
+        </div>
+      </div>
+
+      <!-- DTR / Attendance -->
+      <div class="emp-card">
+        <div class="emp-card-header">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="module-icon" style="width:36px;height:36px;background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.2)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M16 2v4M8 2v4M2 10h20"/></svg>
+            </div>
+            <div>
+              <div class="emp-card-title">Attendance Records</div>
+              <div class="emp-card-sub">Your DTR history</div>
+            </div>
+          </div>
+        </div>
+        <div id="empDtrList" class="emp-list">
+          <div class="emp-list-loading">Loading attendance records…</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Coming soon modules visible to employees -->
+    <div class="emp-coming-row">
+      <div class="emp-coming-card">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M16 2v4M8 2v4M2 10h20"/><circle cx="12" cy="15" r="2"/></svg>
+        <span>Game Schedules</span>
+        <span class="module-badge soon" style="margin-left:auto">Soon</span>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- /.app -->
+
+<!-- TOAST -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="config.js"></script>
+<script src="auth.js"></script>
+<script src="home.js"></script>
+</body>
+</html>

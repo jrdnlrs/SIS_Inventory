@@ -1,0 +1,486 @@
+/* ─────────────────────────────────────────
+   SIS — home.css
+   Central Hub styles
+   ───────────────────────────────────────── */
+
+/* ── LOADING PULSE (reused) ── */
+@keyframes loadingPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ── TOAST (reused from styles.css pattern) ── */
+@keyframes toastOut {
+  to { opacity: 0; transform: translateX(20px); }
+}
+
+/* ══════════════════════════════════════════
+   ADMIN VIEW
+   ══════════════════════════════════════════ */
+
+/* ── Welcome strip ── */
+.hub-welcome {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hub-greeting {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.3px;
+}
+
+.hub-date {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+}
+
+.hub-tagline {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+/* ── Stat strip ── */
+.stat-strip {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+}
+
+.stat-pill {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  flex: 1;
+  min-width: 130px;
+  transition: border-color 0.15s;
+}
+
+.stat-pill:hover {
+  border-color: var(--border-bright);
+}
+
+.stat-pill-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+}
+
+.stat-pill-val {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--accent-bright);
+}
+
+/* ── Module grid ── */
+.module-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.module-card {
+  display: flex;
+  flex-direction: column;
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  color: var(--text);
+  transition: border-color 0.2s, background 0.2s, transform 0.15s, box-shadow 0.2s;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.module-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(59,130,246,0.03), transparent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.module-card:hover:not(.coming-soon) {
+  border-color: var(--accent);
+  background: var(--surface2);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(59,130,246,0.12);
+}
+
+.module-card:hover:not(.coming-soon)::before {
+  opacity: 1;
+}
+
+.module-card.coming-soon {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.module-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.module-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.module-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 99px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.module-badge.live {
+  background: rgba(52,211,153,0.1);
+  color: var(--green);
+  border: 1px solid rgba(52,211,153,0.2);
+}
+
+.module-badge.soon {
+  background: rgba(167,139,250,0.1);
+  color: #a78bfa;
+  border: 1px solid rgba(167,139,250,0.2);
+}
+
+.module-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.module-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  flex: 1;
+  margin-bottom: 16px;
+}
+
+.module-stats {
+  display: flex;
+  gap: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--accent-bright);
+  margin-bottom: 14px;
+}
+
+.module-coming-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.module-arrow {
+  display: flex;
+  justify-content: flex-end;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.module-card:hover:not(.coming-soon) .module-arrow {
+  opacity: 1;
+  transform: translateX(3px);
+}
+
+/* ══════════════════════════════════════════
+   EMPLOYEE VIEW
+   ══════════════════════════════════════════ */
+
+/* ── Slideshow hero ── */
+.emp-hero {
+  margin-bottom: 28px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.emp-slideshow {
+  position: relative;
+  height: 200px;
+}
+
+.slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28px 36px;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+}
+
+.slide.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.slide-content {
+  flex: 1;
+}
+
+.slide-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.slide-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+  margin-bottom: 6px;
+}
+
+.slide-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.slide-graphic {
+  flex-shrink: 0;
+  margin-left: 20px;
+}
+
+.slide-dots {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+}
+
+.slide-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: none;
+  background: var(--border-bright);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.slide-dot.active {
+  background: var(--accent);
+  transform: scale(1.3);
+}
+
+/* ── Employee info cards ── */
+.emp-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.emp-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.emp-card-header {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+
+.emp-card-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.emp-card-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ── Record rows (payslips + DTR) ── */
+.emp-list {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.emp-list::-webkit-scrollbar { width: 4px; }
+.emp-list::-webkit-scrollbar-track { background: transparent; }
+.emp-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.emp-record-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+
+.emp-record-row:last-child { border-bottom: none; }
+.emp-record-row:hover { background: var(--surface2); }
+
+.emp-record-period {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent-bright);
+  margin-bottom: 4px;
+}
+
+.emp-record-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.emp-record-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.emp-record-tag.regular {
+  background: rgba(52,211,153,0.08);
+  color: var(--green);
+  border: 1px solid rgba(52,211,153,0.15);
+}
+
+.emp-record-tag.event {
+  background: rgba(167,139,250,0.1);
+  color: #a78bfa;
+  border: 1px solid rgba(167,139,250,0.2);
+}
+
+.emp-record-right {
+  text-align: right;
+}
+
+.emp-record-net {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent-bright);
+}
+
+.emp-record-gross {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ── DTR attendance bar ── */
+.emp-dtr-bar-wrap {
+  margin-top: 6px;
+  height: 3px;
+  width: 120px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.emp-dtr-bar {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+/* ── Coming soon row for employees ── */
+.emp-coming-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.emp-coming-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  font-family: 'Barlow', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  opacity: 0.6;
+  min-width: 220px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .module-grid { grid-template-columns: 1fr; }
+  .emp-cards   { grid-template-columns: 1fr; }
+  .stat-strip  { gap: 8px; }
+  .stat-pill   { min-width: 100px; }
+  .slide       { padding: 20px 20px; }
+  .slide-title { font-size: 22px; }
+  .slide-graphic { display: none; }
+  .hub-welcome { flex-direction: column; align-items: flex-start; }
+}
