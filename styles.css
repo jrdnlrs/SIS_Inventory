@@ -111,6 +111,27 @@ header {
 
 .header-actions { display: flex; gap: 8px; align-items: center; }
 
+/* ── USER CHIP LINK ── */
+.user-chip-link {
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  margin-right: 4px;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.user-chip-link:hover {
+  background: rgba(255, 255, 255, 0.04);
+  transform: translateY(-1px);
+}
+
+.user-chip-link:hover #userChipName {
+  color: var(--accent-bright) !important;
+}
+
+.user-chip-link:active {
+  transform: translateY(0);
+}
+
 /* BUTTONS */
 .btn {
   padding: 8px 16px;

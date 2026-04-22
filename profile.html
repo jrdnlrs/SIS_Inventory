@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIS — My Profile</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="payrollstyles.css">
+<style>
+
+/* ── BACK LINK ── */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-decoration: none;
+  letter-spacing: 0.5px;
+  margin-bottom: 28px;
+  transition: color 0.15s;
+}
+.back-link:hover { color: var(--accent-bright); }
+
+/* ── PROFILE HERO ── */
+.profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 28px 32px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-hero::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-dim), var(--accent), #7c3aed);
+}
+
+/* decorative glow behind avatar */
+.profile-hero::after {
+  content: '';
+  position: absolute;
+  left: 20px; top: 50%;
+  transform: translateY(-50%);
+  width: 110px; height: 110px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(59,130,246,0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.profile-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--accent-dim), var(--accent));
+  display: grid;
+  place-items: center;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 1px;
+  box-shadow: 0 0 24px rgba(59,130,246,0.3);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.profile-hero-info {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.profile-hero-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1;
+}
+
+.profile-hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.profile-hero-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.badge-employee {
+  background: rgba(52,211,153,0.1);
+  color: var(--green);
+  border: 1px solid rgba(52,211,153,0.2);
+}
+
+.badge-admin {
+  background: rgba(59,130,246,0.1);
+  color: var(--accent-bright);
+  border: 1px solid rgba(59,130,246,0.2);
+}
+
+.profile-hero-id {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
+}
+
+.profile-hero-pos {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 5px;
+  font-family: 'Barlow', sans-serif;
+}
+
+/* ── TABS ── */
+.profile-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+
+.ptab-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 18px;
+  font-family: 'Barlow', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  letter-spacing: 0.2px;
+}
+.ptab-link:hover { color: var(--text); }
+.ptab-link.active { color: var(--accent-bright); border-bottom-color: var(--accent); }
+
+/* ── PROFILE SECTION CARD ── */
+.profile-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px 28px 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-section::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+
+.ps-info::before  { background: linear-gradient(90deg, var(--accent-dim), var(--accent)); }
+.ps-security::before { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+
+.profile-section-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.section-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+}
+
+.dot-blue   { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.dot-purple { background: #a78bfa;       box-shadow: 0 0 6px #a78bfa; }
+
+/* ── FORM FIELDS ── */
+.pf-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.pf-grid.three-col { grid-template-columns: 1fr 1fr 1fr; }
+
+.pf-full { grid-column: 1 / -1; }
+
+.pf-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pf-group label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+}
+
+.pf-group input,
+.pf-group select {
+  padding: 10px 13px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: 'Barlow', sans-serif;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+}
+
+.pf-group input:focus,
+.pf-group select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.pf-group input.purple-focus:focus {
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 3px rgba(167,139,250,0.1);
+}
+
+.pf-group input[readonly] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: var(--surface2);
+  border-style: dashed;
+}
+
+.pf-hint {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace;
+  margin-top: 1px;
+}
+
+/* ── SAVE ROW ── */
+.pf-save-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.pf-saved-indicator {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--green);
+  margin-right: auto;
+  animation: fadeInLeft 0.3s ease-out;
+}
+
+@keyframes fadeInLeft {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── PANEL CONTENT ── */
+.panel-content { display: none; }
+.panel-content.visible { display: flex; flex-direction: column; gap: 20px; }
+
+/* ── READONLY INFO DISPLAY (non-edit mode) ── */
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.info-item {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.info-item:nth-child(odd) { padding-right: 24px; }
+.info-item:nth-child(even) { padding-left: 24px; border-left: 1px solid var(--border); }
+
+.info-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+
+.info-value {
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.info-value.empty { color: var(--text-dim); font-style: italic; font-size: 13px; }
+
+/* ── STRENGTH METER ── */
+.strength-bar-wrap {
+  margin-top: 6px;
+  height: 3px;
+  background: var(--surface3, #1a2235);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.strength-bar {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.3s, background 0.3s;
+  width: 0%;
+  background: var(--red);
+}
+
+.strength-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-top: 4px;
+  color: var(--text-muted);
+}
+
+/* ── TOAST ── */
+.toast.success { background: rgba(52,211,153,0.12); border-color: rgba(52,211,153,0.3); color: var(--green); }
+.toast.error   { background: rgba(248,113,113,0.12); border-color: rgba(248,113,113,0.3); color: var(--red); }
+.toast.info    { background: rgba(59,130,246,0.12);  border-color: rgba(59,130,246,0.3);  color: var(--accent-bright); }
+
+@media (max-width: 680px) {
+  .pf-grid, .pf-grid.three-col, .info-grid { grid-template-columns: 1fr; }
+  .info-item:nth-child(even) { border-left: none; padding-left: 0; }
+  .profile-hero { flex-direction: column; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="loadingBar" style="display:none;position:fixed;top:0;left:0;right:0;height:3px;background:var(--accent);z-index:9999;animation:loadingPulse 1s ease-in-out infinite;"></div>
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="18" rx="2"/>
+          <path d="M8 3v18M16 3v18M2 9h20M2 15h20"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Supreme InfoTech Solutions</h1>
+        <span>My Profile</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div id="userChip" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);">
+        <span id="userChipName" style="color:var(--text)"></span>
+        <span id="userChipRole" style="font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:rgba(59,130,246,0.1);color:var(--accent-bright);border:1px solid rgba(59,130,246,0.2);"></span>
+      </div>
+      <button class="btn btn-ghost" onclick="AUTH.logout()" style="padding:8px 12px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Sign Out
+      </button>
+    </div>
+  </header>
+
+  <!-- BACK LINK (destination set by JS based on role) -->
+  <a href="#" class="back-link" id="backLink">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    Back
+  </a>
+
+  <!-- HERO CARD -->
+  <div class="profile-hero">
+    <div class="profile-avatar" id="heroAvatar">--</div>
+    <div class="profile-hero-info">
+      <div class="profile-hero-name" id="heroName">—</div>
+      <div class="profile-hero-meta">
+        <span class="profile-hero-badge badge-employee" id="heroBadge">Employee</span>
+        <span class="profile-hero-id" id="heroUsername">—</span>
+      </div>
+      <div class="profile-hero-pos" id="heroPosition">—</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="profile-tabs">
+    <button class="ptab-link active" onclick="switchTab('info', this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Personal Info
+    </button>
+    <button class="ptab-link" onclick="switchTab('security', this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      Security
+    </button>
+  </div>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- TAB: PERSONAL INFO                      -->
+  <!-- ═══════════════════════════════════════ -->
+  <div class="panel-content visible" id="tab-info">
+
+    <!-- BASIC INFO -->
+    <div class="profile-section ps-info">
+      <div class="profile-section-title">
+        <span class="section-dot dot-blue"></span>
+        Basic Information
+        <button class="btn btn-ghost" id="editToggleBtn" onclick="toggleEdit()" style="margin-left:auto;font-size:12px;padding:6px 14px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Edit
+        </button>
+      </div>
+
+      <!-- READ-ONLY VIEW -->
+      <div id="infoReadView">
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">Display Name</div>
+            <div class="info-value" id="rv-displayName">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Employee ID</div>
+            <div class="info-value" id="rv-username">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Position</div>
+            <div class="info-value" id="rv-position">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Department</div>
+            <div class="info-value" id="rv-department">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Email Address</div>
+            <div class="info-value" id="rv-email">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Mobile Number</div>
+            <div class="info-value" id="rv-mobile">—</div>
+          </div>
+          <div class="info-item pf-full" style="grid-column:1/-1;">
+            <div class="info-label">Address</div>
+            <div class="info-value" id="rv-address">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EDIT VIEW (hidden by default) -->
+      <div id="infoEditView" style="display:none;">
+        <div class="pf-grid">
+          <div class="pf-group">
+            <label>Display Name</label>
+            <input type="text" id="f-displayName" placeholder="Your full name" />
+          </div>
+          <div class="pf-group">
+            <label>Employee ID</label>
+            <input type="text" id="f-username" readonly />
+            <span class="pf-hint">Cannot be changed</span>
+          </div>
+          <div class="pf-group">
+            <label>Position</label>
+            <input type="text" id="f-position" placeholder="e.g. IT Technician" />
+          </div>
+          <div class="pf-group">
+            <label>Department</label>
+            <input type="text" id="f-department" placeholder="e.g. Operations" />
+          </div>
+          <div class="pf-group">
+            <label>Email Address</label>
+            <input type="email" id="f-email" placeholder="your@email.com" />
+          </div>
+          <div class="pf-group">
+            <label>Mobile Number</label>
+            <input type="tel" id="f-mobile" placeholder="+63 9XX XXX XXXX" />
+          </div>
+          <div class="pf-group pf-full">
+            <label>Address</label>
+            <input type="text" id="f-address" placeholder="Your complete address" />
+          </div>
+        </div>
+
+        <div class="pf-save-row">
+          <div class="pf-saved-indicator" id="savedIndicator">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Changes saved
+          </div>
+          <button class="btn btn-ghost" onclick="cancelEdit()">Cancel</button>
+          <button class="btn btn-primary" onclick="saveInfo()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- TAB: SECURITY                           -->
+  <!-- ═══════════════════════════════════════ -->
+  <div class="panel-content" id="tab-security">
+    <div class="profile-section ps-security">
+      <div class="profile-section-title">
+        <span class="section-dot dot-purple"></span>
+        Change Password
+      </div>
+
+      <div class="pf-grid" style="max-width:560px;">
+        <div class="pf-group pf-full">
+          <label>Current Password</label>
+          <input type="password" id="s-current" class="purple-focus" placeholder="Enter your current password" />
+        </div>
+        <div class="pf-group">
+          <label>New Password</label>
+          <input type="password" id="s-new" class="purple-focus" placeholder="Minimum 6 characters" oninput="checkStrength(this.value)" />
+          <div class="strength-bar-wrap"><div class="strength-bar" id="strengthBar"></div></div>
+          <div class="strength-text" id="strengthText"></div>
+        </div>
+        <div class="pf-group">
+          <label>Confirm New Password</label>
+          <input type="password" id="s-confirm" class="purple-focus" placeholder="Re-enter new password" />
+        </div>
+      </div>
+
+      <div class="pf-save-row" style="max-width:560px;">
+        <button class="btn btn-ghost" onclick="clearPasswordFields()">Clear</button>
+        <button class="btn btn-primary" style="background:linear-gradient(135deg,#7c3aed,#a78bfa);box-shadow:0 2px 12px rgba(167,139,250,0.25);" onclick="savePassword()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          Update Password
+        </button>
+      </div>
+
+      <div style="margin-top:24px;padding:14px 16px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.15);border-radius:var(--radius);font-size:12px;color:#fbbf24;font-family:'JetBrains Mono',monospace;line-height:1.6;max-width:560px;">
+        ⚠ Password changes update your session only. Your admin manages the credentials file. Contact your system administrator to make the change permanent.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="config.js"></script>
+<script src="auth.js"></script>
+<script>
+/* ─────────────────────────────────────────
+   profile.js (inline)
+   ───────────────────────────────────────── */
+
+const EMP_URL = `${SUPABASE_URL}/rest/v1/employees`;
+
+function makeHeaders(extra = {}) {
+  return {
+    'Content-Type':  'application/json',
+    'apikey':        SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    'Prefer':        'return=representation',
+    ...extra,
+  };
+}
+
+async function sbGet(url) {
+  const res = await fetch(url, { headers: makeHeaders() });
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res.json();
+}
+
+async function sbPatch(url, body) {
+  const res = await fetch(url, {
+    method: 'PATCH', headers: makeHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res.json();
+}
+
+// ── STATE ──
+let session   = null;
+let empRecord = null;
+let isEditing = false;
+
+// ── UTILS ──
+function setLoading(on) {
+  document.getElementById('loadingBar').style.display = on ? 'block' : 'none';
+}
+
+function toast(msg, type = 'info') {
+  const icons = { success: '✓', error: '✗', info: 'ℹ' };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${icons[type]}</span> ${msg}`;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => {
+    el.style.animation = 'toastOut 0.3s ease-in forwards';
+    setTimeout(() => el.remove(), 300);
+  }, 3200);
+}
+
+function initials(name) {
+  if (!name) return '??';
+  const parts = name.trim().split(/\s+/);
+  return parts.length >= 2
+    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    : name.slice(0, 2).toUpperCase();
+}
+
+function val(id) { return (document.getElementById(id)?.value || '').trim(); }
+function setVal(id, v) { const el = document.getElementById(id); if (el) el.value = v || ''; }
+function setText(id, v, fallback = '—') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (!v) {
+    el.textContent = fallback;
+    el.classList.add('empty');
+  } else {
+    el.textContent = v;
+    el.classList.remove('empty');
+  }
+}
+
+// ── TABS ──
+function switchTab(name, btn) {
+  document.querySelectorAll('.panel-content').forEach(el => el.classList.remove('visible'));
+  document.querySelectorAll('.ptab-link').forEach(el => el.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('visible');
+  btn.classList.add('active');
+}
+
+// ── INIT ──
+document.addEventListener('DOMContentLoaded', async () => {
+  session = AUTH.requireAuth();
+  if (!session) return;
+
+  // Header chip
+  document.getElementById('userChipName').textContent = session.display_name || session.username;
+  document.getElementById('userChipRole').textContent = session.role;
+
+  // Back link — route everyone to the Central Hub
+  document.getElementById('backLink').href = 'home.html';
+  document.getElementById('backLink').querySelector('svg').nextSibling.textContent = ' Back to Hub';
+
+  setLoading(true);
+  await loadEmployeeRecord();
+  setLoading(false);
+  populateAll();
+});
+
+async function loadEmployeeRecord() {
+  try {
+    const name = encodeURIComponent(session.display_name || session.username);
+    const rows = await sbGet(`${EMP_URL}?name=eq.${name}&select=*&limit=1`);
+    empRecord  = rows && rows.length ? rows[0] : null;
+  } catch (e) {
+    console.warn('[profile] could not load employee record:', e.message);
+    empRecord = null;
+  }
+}
+
+function populateAll() {
+  const displayName = session.display_name || session.username;
+  const role        = session.role || 'employee';
+  const pos         = empRecord?.position   || '';
+  const dept        = empRecord?.department || '';
+  const email       = empRecord?.email      || '';
+  const mobile      = empRecord?.mobile     || '';
+  const address     = empRecord?.address    || '';
+
+  // Hero
+  document.getElementById('heroAvatar').textContent   = initials(displayName);
+  document.getElementById('heroName').textContent     = displayName;
+  document.getElementById('heroUsername').textContent = session.username;
+  document.getElementById('heroPosition').textContent = pos
+    ? `${pos}${dept ? ' · ' + dept : ''}`
+    : 'No position set';
+
+  const badge = document.getElementById('heroBadge');
+  badge.textContent = role === 'admin' ? 'Admin' : 'Employee';
+  badge.className   = `profile-hero-badge ${role === 'admin' ? 'badge-admin' : 'badge-employee'}`;
+
+  // Role badge color in header
+  const chipRole = document.getElementById('userChipRole');
+  if (role === 'employee') {
+    chipRole.style.cssText = 'font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:rgba(52,211,153,0.1);color:var(--green);border:1px solid rgba(52,211,153,0.2);';
+  }
+
+  // Read-only view
+  setText('rv-displayName', displayName);
+  setText('rv-username',    session.username);
+  setText('rv-position',    pos,     'Not set');
+  setText('rv-department',  dept,    'Not set');
+  setText('rv-email',       email,   'Not set');
+  setText('rv-mobile',      mobile,  'Not set');
+  setText('rv-address',     address, 'Not set');
+
+  // Edit form pre-fill
+  setVal('f-displayName', displayName);
+  setVal('f-username',    session.username);
+  setVal('f-position',    pos);
+  setVal('f-department',  dept);
+  setVal('f-email',       email);
+  setVal('f-mobile',      mobile);
+  setVal('f-address',     address);
+}
+
+// ── EDIT TOGGLE ──
+function toggleEdit() {
+  isEditing = !isEditing;
+  document.getElementById('infoReadView').style.display = isEditing ? 'none' : 'block';
+  document.getElementById('infoEditView').style.display = isEditing ? 'block' : 'none';
+  const btn = document.getElementById('editToggleBtn');
+  if (isEditing) {
+    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel`;
+    btn.classList.remove('btn-ghost');
+    // focus first editable
+    setTimeout(() => document.getElementById('f-displayName')?.focus(), 50);
+  } else {
+    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit`;
+    btn.className = 'btn btn-ghost';
+    // reset edit form to current values
+    populateAll();
+  }
+}
+
+function cancelEdit() {
+  isEditing = true; // toggleEdit will flip it
+  toggleEdit();
+}
+
+async function saveInfo() {
+  const displayName = val('f-displayName');
+  if (!displayName) { toast('Display name cannot be empty.', 'error'); return; }
+
+  const updates = {
+    position:   val('f-position'),
+    department: val('f-department'),
+    email:      val('f-email'),
+    mobile:     val('f-mobile'),
+    address:    val('f-address'),
+  };
+
+  setLoading(true);
+  try {
+    if (empRecord) {
+      if (displayName !== (empRecord.name || '')) updates.name = displayName;
+      await sbPatch(`${EMP_URL}?id=eq.${empRecord.id}`, updates);
+      empRecord = { ...empRecord, ...updates, name: displayName };
+    }
+
+    // Update session display_name
+    const s = AUTH.getSession();
+    if (s) {
+      s.display_name = displayName;
+      sessionStorage.setItem('stockdesk_session', JSON.stringify(s));
+      session.display_name = displayName;
+    }
+
+    // Update hero + header
+    document.getElementById('userChipName').textContent = displayName;
+    populateAll();
+
+    // Show saved indicator
+    const ind = document.getElementById('savedIndicator');
+    ind.style.display = 'flex';
+    setTimeout(() => { ind.style.display = 'none'; }, 3000);
+
+    // Switch back to read view
+    isEditing = true;
+    toggleEdit();
+    toast('Profile updated successfully.', 'success');
+  } catch (e) {
+    toast(`Save failed: ${e.message}`, 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── SECURITY ──
+function checkStrength(pw) {
+  const bar  = document.getElementById('strengthBar');
+  const text = document.getElementById('strengthText');
+  if (!pw) { bar.style.width = '0%'; text.textContent = ''; return; }
+
+  let score = 0;
+  if (pw.length >= 6)  score++;
+  if (pw.length >= 10) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+
+  const levels = [
+    { w: '20%', c: 'var(--red)',    t: 'Very Weak' },
+    { w: '40%', c: 'var(--orange)', t: 'Weak' },
+    { w: '60%', c: 'var(--yellow)', t: 'Fair' },
+    { w: '80%', c: 'var(--accent)', t: 'Strong' },
+    { w: '100%',c: 'var(--green)', t: 'Very Strong' },
+  ];
+  const lvl = levels[Math.min(score - 1, 4)] || levels[0];
+  bar.style.width      = lvl.w;
+  bar.style.background = lvl.c;
+  text.textContent     = lvl.t;
+  text.style.color     = lvl.c;
+}
+
+function clearPasswordFields() {
+  ['s-current','s-new','s-confirm'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('strengthBar').style.width = '0%';
+  document.getElementById('strengthText').textContent = '';
+}
+
+async function savePassword() {
+  const current = document.getElementById('s-current').value;
+  const newPass  = document.getElementById('s-new').value;
+  const confirm  = document.getElementById('s-confirm').value;
+
+  if (!current) { toast('Enter your current password.', 'error'); return; }
+  if (!newPass)  { toast('Enter a new password.', 'error'); return; }
+  if (newPass.length < 6) { toast('New password must be at least 6 characters.', 'error'); return; }
+  if (newPass !== confirm) { toast('Passwords do not match.', 'error'); return; }
+
+  // Verify current password against users.json
+  setLoading(true);
+  try {
+    const currentHash = await AUTH.hashPassword(current);
+    // Load users.json to verify
+    const res   = await fetch('users.json?nocache=' + Date.now());
+    const data  = await res.json();
+    const uname = (session.username || '').toLowerCase();
+    const user  = (data.users || []).find(u => u.username.toLowerCase() === uname);
+
+    if (!user) {
+      toast('Could not find your account record.', 'error');
+      return;
+    }
+
+    if (currentHash !== user.password_hash) {
+      toast('Current password is incorrect.', 'error');
+      return;
+    }
+
+    const newHash = await AUTH.hashPassword(newPass);
+    toast(`New password hash generated. Share with your admin to update users.json:`, 'info');
+
+    // Show the hash so the user/admin can update users.json
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.style.cssText = `
+        position:fixed;bottom:80px;right:24px;
+        background:var(--surface2);border:1px solid var(--border-bright);
+        border-radius:var(--radius);padding:16px;max-width:420px;
+        font-family:'JetBrains Mono',monospace;font-size:11px;
+        color:var(--text);z-index:9998;box-shadow:0 8px 32px rgba(0,0,0,0.4);
+      `;
+      el.innerHTML = `
+        <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">New Password Hash</div>
+        <div style="word-break:break-all;color:var(--accent-bright);margin-bottom:10px;line-height:1.5;">${newHash}</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:10px;">Give this hash to your admin to update users.json for <strong style="color:var(--text)">${session.username}</strong>.</div>
+        <button onclick="navigator.clipboard.writeText('${newHash}').then(()=>toast('Hash copied!','success'));this.textContent='✓ Copied!'"
+          style="padding:5px 12px;background:var(--accent-dim);color:#fff;border:none;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;margin-right:6px;">
+          Copy Hash
+        </button>
+        <button onclick="this.parentElement.remove()"
+          style="padding:5px 12px;background:var(--surface3);color:var(--text-muted);border:1px solid var(--border);border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;">
+          Dismiss
+        </button>
+      `;
+      document.body.appendChild(el);
+    }, 500);
+
+    clearPasswordFields();
+  } catch (e) {
+    toast(`Error: ${e.message}`, 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+</script>
+</body>
+</html>
