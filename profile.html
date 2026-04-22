@@ -358,6 +358,63 @@
   color: var(--text-muted);
 }
 
+/* ── DIGITAL CLOCK & PUNCH UI ── */
+.digital-clock {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 64px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+  letter-spacing: 1px;
+}
+
+.current-date {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: var(--accent-bright);
+  margin-top: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.btn-punch {
+  background: linear-gradient(135deg, #059669, #10b981);
+  border: none;
+  border-radius: 99px;
+  padding: 16px 48px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.25);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-punch:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(16, 185, 129, 0.4);
+}
+
+.btn-punch:active { transform: translateY(0); }
+
+.btn-punch .punch-icon { width: 22px; height: 22px; }
+.btn-punch .punch-text {
+  font-family: 'Barlow Condensed', sans-serif; 
+  font-size: 24px; 
+  font-weight: 700; 
+  text-transform: uppercase; 
+  letter-spacing: 1px;
+}
+
+/* Time Out State (Orange) */
+.btn-punch.punch-out {
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.25);
+}
+
+.btn-punch.punch-out:hover { box-shadow: 0 12px 32px rgba(245, 158, 11, 0.4); }
+
 /* ── TOAST ── */
 .toast.success { background: rgba(52,211,153,0.12); border-color: rgba(52,211,153,0.3); color: var(--green); }
 .toast.error   { background: rgba(248,113,113,0.12); border-color: rgba(248,113,113,0.3); color: var(--red); }
@@ -429,10 +486,69 @@
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       Personal Info
     </button>
+    <button class="ptab-link" onclick="switchTab('dtr', this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Attendance
+    </button>
     <button class="ptab-link" onclick="switchTab('security', this)">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
       Security
     </button>
+  </div>
+
+  <div class="panel-content" id="tab-dtr">
+    
+    <div class="profile-section" style="text-align: center; padding-top: 48px; padding-bottom: 48px;">
+      <div class="digital-clock" id="liveClock">00:00:00 AM</div>
+      <div class="current-date" id="liveDate">Loading date...</div>
+      
+      <div style="margin-top: 36px;">
+        <button class="btn-punch" id="btnPunch" onclick="handlePunch()">
+          <svg class="punch-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          <span class="punch-text" id="punchText">Time In</span>
+        </button>
+      </div>
+      
+      <div id="punchStatusText" style="margin-top:20px; font-size:12px; color:var(--text-muted); font-family:'JetBrains Mono', monospace;">
+        Ready to start your shift.
+      </div>
+    </div>
+
+    <div class="profile-section" style="padding: 24px;">
+      <div class="profile-section-title" style="margin-bottom:16px;">
+        <span class="section-dot dot-blue" style="background:#34d399;box-shadow:0 0 6px #34d399;"></span> 
+        Recent Logs
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Time In</th>
+              <th>Time Out</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="dtrHistoryBody">
+            <tr style="cursor:pointer" onclick="alert('In the future, this will open details for April 21.')">
+              <td style="font-weight:600;">Apr 21, 2026</td>
+              <td class="mono" style="color:var(--text)">08:55 AM</td>
+              <td class="mono" style="color:var(--text)">06:05 PM</td>
+              <td><span class="badge badge-ok">Present</span></td>
+              <td style="text-align:right;color:var(--text-muted);">›</td>
+            </tr>
+            <tr style="cursor:pointer" onclick="alert('In the future, this will open details for April 20.')">
+              <td style="font-weight:600;">Apr 20, 2026</td>
+              <td class="mono" style="color:var(--orange)">09:15 AM</td>
+              <td class="mono" style="color:var(--text)">06:00 PM</td>
+              <td><span class="badge badge-low">Late</span></td>
+              <td style="text-align:right;color:var(--text-muted);">›</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <!-- ═══════════════════════════════════════ -->
@@ -915,6 +1031,53 @@ async function savePassword() {
     toast(`Error: ${e.message}`, 'error');
   } finally {
     setLoading(false);
+  }
+}
+
+// ── DIGITAL CLOCK LOGIC ──
+function initClock() {
+  const clockEl = document.getElementById('liveClock');
+  const dateEl = document.getElementById('liveDate');
+  if (!clockEl || !dateEl) return;
+
+  function updateClock() {
+    const now = new Date();
+    clockEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    dateEl.textContent = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  }
+  
+  setInterval(updateClock, 1000);
+  updateClock();
+}
+
+// Start clock when page loads
+document.addEventListener('DOMContentLoaded', initClock);
+
+// ── PUNCH MOCK LOGIC ──
+let isTimedIn = false;
+
+function handlePunch() {
+  const btn = document.getElementById('btnPunch');
+  const text = document.getElementById('punchText');
+  const status = document.getElementById('punchStatusText');
+  
+  // Grab the current time without seconds for the status message
+  const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+  if (!isTimedIn) {
+    // Switch to Time Out state
+    isTimedIn = true;
+    btn.classList.add('punch-out');
+    text.textContent = 'Time Out';
+    status.innerHTML = `Timed in successfully at <strong style="color:var(--text)">${now}</strong>. Have a great shift!`;
+    toast('Timed in successfully!', 'success');
+  } else {
+    // Switch back to Time In state
+    isTimedIn = false;
+    btn.classList.remove('punch-out');
+    text.textContent = 'Time In';
+    status.innerHTML = `Timed out successfully at <strong style="color:var(--text)">${now}</strong>. See you tomorrow!`;
+    toast('Timed out successfully!', 'info');
   }
 }
 </script>
