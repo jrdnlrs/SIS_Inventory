@@ -46,7 +46,6 @@
   background: linear-gradient(90deg, var(--accent-dim), var(--accent), #7c3aed);
 }
 
-/* decorative glow behind avatar */
 .profile-hero::after {
   content: '';
   position: absolute;
@@ -181,8 +180,7 @@
   height: 2px;
 }
 
-.ps-info::before  { background: linear-gradient(90deg, var(--accent-dim), var(--accent)); }
-.ps-security::before { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+.ps-info::before { background: linear-gradient(90deg, var(--accent-dim), var(--accent)); }
 
 .profile-section-title {
   font-family: 'Barlow Condensed', sans-serif;
@@ -203,7 +201,7 @@
 }
 
 .dot-blue   { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
-.dot-purple { background: #a78bfa;       box-shadow: 0 0 6px #a78bfa; }
+.dot-green  { background: var(--green);  box-shadow: 0 0 6px var(--green); }
 
 /* ── FORM FIELDS ── */
 .pf-grid {
@@ -211,8 +209,6 @@
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
-
-.pf-grid.three-col { grid-template-columns: 1fr 1fr 1fr; }
 
 .pf-full { grid-column: 1 / -1; }
 
@@ -228,6 +224,26 @@
   text-transform: uppercase;
   letter-spacing: 1.5px;
   color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Admin-only lock badge next to label */
+.label-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(251,191,36,0.08);
+  color: #fbbf24;
+  border: 1px solid rgba(251,191,36,0.2);
+  white-space: nowrap;
 }
 
 .pf-group input,
@@ -250,12 +266,8 @@
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
-.pf-group input.purple-focus:focus {
-  border-color: #a78bfa;
-  box-shadow: 0 0 0 3px rgba(167,139,250,0.1);
-}
-
-.pf-group input[readonly] {
+.pf-group input[readonly],
+.pf-group input.admin-only-field {
   opacity: 0.45;
   cursor: not-allowed;
   background: var(--surface2);
@@ -300,7 +312,7 @@
 .panel-content { display: none; }
 .panel-content.visible { display: flex; flex-direction: column; gap: 20px; }
 
-/* ── READONLY INFO DISPLAY (non-edit mode) ── */
+/* ── READ-ONLY INFO DISPLAY ── */
 .info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -312,7 +324,7 @@
   border-bottom: 1px solid var(--border);
 }
 
-.info-item:nth-child(odd) { padding-right: 24px; }
+.info-item:nth-child(odd)  { padding-right: 24px; }
 .info-item:nth-child(even) { padding-left: 24px; border-left: 1px solid var(--border); }
 
 .info-label {
@@ -322,6 +334,9 @@
   letter-spacing: 1.5px;
   color: var(--text-muted);
   margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .info-value {
@@ -331,32 +346,6 @@
 }
 
 .info-value.empty { color: var(--text-dim); font-style: italic; font-size: 13px; }
-
-/* ── STRENGTH METER ── */
-.strength-bar-wrap {
-  margin-top: 6px;
-  height: 3px;
-  background: var(--surface3, #1a2235);
-  border-radius: 99px;
-  overflow: hidden;
-}
-
-.strength-bar {
-  height: 100%;
-  border-radius: 99px;
-  transition: width 0.3s, background 0.3s;
-  width: 0%;
-  background: var(--red);
-}
-
-.strength-text {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  margin-top: 4px;
-  color: var(--text-muted);
-}
 
 /* ── DIGITAL CLOCK & PUNCH UI ── */
 .digital-clock {
@@ -387,33 +376,51 @@
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.25);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 8px 24px rgba(16,185,129,0.25);
+  transition: all 0.2s cubic-bezier(0.16,1,0.3,1);
 }
 
 .btn-punch:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 12px 32px rgba(16,185,129,0.4);
 }
 
 .btn-punch:active { transform: translateY(0); }
 
+.btn-punch.punch-out {
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+  box-shadow: 0 8px 24px rgba(245,158,11,0.25);
+}
+
+.btn-punch.punch-out:hover { box-shadow: 0 12px 32px rgba(245,158,11,0.4); }
+
 .btn-punch .punch-icon { width: 22px; height: 22px; }
 .btn-punch .punch-text {
-  font-family: 'Barlow Condensed', sans-serif; 
-  font-size: 24px; 
-  font-weight: 700; 
-  text-transform: uppercase; 
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  text-transform: uppercase;
   letter-spacing: 1px;
 }
 
-/* Time Out State (Orange) */
-.btn-punch.punch-out {
-  background: linear-gradient(135deg, #d97706, #f59e0b);
-  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.25);
+/* ── DTR LOG TABLE ── */
+.dtr-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  gap: 10px;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  text-align: center;
 }
 
-.btn-punch.punch-out:hover { box-shadow: 0 12px 32px rgba(245, 158, 11, 0.4); }
+.dtr-empty svg {
+  opacity: 0.2;
+  margin-bottom: 4px;
+}
 
 /* ── TOAST ── */
 .toast.success { background: rgba(52,211,153,0.12); border-color: rgba(52,211,153,0.3); color: var(--green); }
@@ -421,9 +428,10 @@
 .toast.info    { background: rgba(59,130,246,0.12);  border-color: rgba(59,130,246,0.3);  color: var(--accent-bright); }
 
 @media (max-width: 680px) {
-  .pf-grid, .pf-grid.three-col, .info-grid { grid-template-columns: 1fr; }
+  .pf-grid, .info-grid { grid-template-columns: 1fr; }
   .info-item:nth-child(even) { border-left: none; padding-left: 0; }
   .profile-hero { flex-direction: column; align-items: flex-start; }
+  .digital-clock { font-size: 44px; }
 }
 </style>
 </head>
@@ -461,10 +469,10 @@
     </div>
   </header>
 
-  <!-- BACK LINK (destination set by JS based on role) -->
-  <a href="#" class="back-link" id="backLink">
+  <!-- BACK LINK -->
+  <a href="home.html" class="back-link" id="backLink">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-    Back
+    Back to Hub
   </a>
 
   <!-- HERO CARD -->
@@ -480,7 +488,7 @@
     </div>
   </div>
 
-  <!-- TABS -->
+  <!-- TABS — Security removed -->
   <div class="profile-tabs">
     <button class="ptab-link active" onclick="switchTab('info', this)">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -490,65 +498,6 @@
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       Attendance
     </button>
-    <button class="ptab-link" onclick="switchTab('security', this)">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-      Security
-    </button>
-  </div>
-
-  <div class="panel-content" id="tab-dtr">
-    
-    <div class="profile-section" style="text-align: center; padding-top: 48px; padding-bottom: 48px;">
-      <div class="digital-clock" id="liveClock">00:00:00 AM</div>
-      <div class="current-date" id="liveDate">Loading date...</div>
-      
-      <div style="margin-top: 36px;">
-        <button class="btn-punch" id="btnPunch" onclick="handlePunch()">
-          <svg class="punch-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-          <span class="punch-text" id="punchText">Time In</span>
-        </button>
-      </div>
-      
-      <div id="punchStatusText" style="margin-top:20px; font-size:12px; color:var(--text-muted); font-family:'JetBrains Mono', monospace;">
-        Ready to start your shift.
-      </div>
-    </div>
-
-    <div class="profile-section" style="padding: 24px;">
-      <div class="profile-section-title" style="margin-bottom:16px;">
-        <span class="section-dot dot-blue" style="background:#34d399;box-shadow:0 0 6px #34d399;"></span> 
-        Recent Logs
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Time In</th>
-              <th>Time Out</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="dtrHistoryBody">
-            <tr style="cursor:pointer" onclick="alert('In the future, this will open details for April 21.')">
-              <td style="font-weight:600;">Apr 21, 2026</td>
-              <td class="mono" style="color:var(--text)">08:55 AM</td>
-              <td class="mono" style="color:var(--text)">06:05 PM</td>
-              <td><span class="badge badge-ok">Present</span></td>
-              <td style="text-align:right;color:var(--text-muted);">›</td>
-            </tr>
-            <tr style="cursor:pointer" onclick="alert('In the future, this will open details for April 20.')">
-              <td style="font-weight:600;">Apr 20, 2026</td>
-              <td class="mono" style="color:var(--orange)">09:15 AM</td>
-              <td class="mono" style="color:var(--text)">06:00 PM</td>
-              <td><span class="badge badge-low">Late</span></td>
-              <td style="text-align:right;color:var(--text-muted);">›</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
   </div>
 
   <!-- ═══════════════════════════════════════ -->
@@ -556,7 +505,6 @@
   <!-- ═══════════════════════════════════════ -->
   <div class="panel-content visible" id="tab-info">
 
-    <!-- BASIC INFO -->
     <div class="profile-section ps-info">
       <div class="profile-section-title">
         <span class="section-dot dot-blue"></span>
@@ -570,6 +518,7 @@
       <!-- READ-ONLY VIEW -->
       <div id="infoReadView">
         <div class="info-grid">
+          <!-- Row 1 -->
           <div class="info-item">
             <div class="info-label">Display Name</div>
             <div class="info-value" id="rv-displayName">—</div>
@@ -578,32 +527,52 @@
             <div class="info-label">Employee ID</div>
             <div class="info-value" id="rv-username">—</div>
           </div>
+          <!-- Row 2 -->
           <div class="info-item">
-            <div class="info-label">Position</div>
+            <div class="info-label">
+              Position
+              <span class="label-lock">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                Admin only
+              </span>
+            </div>
             <div class="info-value" id="rv-position">—</div>
           </div>
           <div class="info-item">
-            <div class="info-label">Department</div>
+            <div class="info-label">
+              Department
+              <span class="label-lock">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                Admin only
+              </span>
+            </div>
             <div class="info-value" id="rv-department">—</div>
+          </div>
+          <!-- Row 3 -->
+          <div class="info-item">
+            <div class="info-label">Mobile Number</div>
+            <div class="info-value" id="rv-mobile">—</div>
           </div>
           <div class="info-item">
             <div class="info-label">Email Address</div>
             <div class="info-value" id="rv-email">—</div>
           </div>
+          <!-- Row 4 -->
           <div class="info-item">
-            <div class="info-label">Mobile Number</div>
-            <div class="info-value" id="rv-mobile">—</div>
+            <div class="info-label">Birthday</div>
+            <div class="info-value" id="rv-birthday">—</div>
           </div>
-          <div class="info-item pf-full" style="grid-column:1/-1;">
-            <div class="info-label">Address</div>
+          <div class="info-item">
+            <div class="info-label">House Address</div>
             <div class="info-value" id="rv-address">—</div>
           </div>
         </div>
       </div>
 
-      <!-- EDIT VIEW (hidden by default) -->
+      <!-- EDIT VIEW -->
       <div id="infoEditView" style="display:none;">
         <div class="pf-grid">
+          <!-- Row 1 -->
           <div class="pf-group">
             <label>Display Name</label>
             <input type="text" id="f-displayName" placeholder="Your full name" />
@@ -613,24 +582,45 @@
             <input type="text" id="f-username" readonly />
             <span class="pf-hint">Cannot be changed</span>
           </div>
+          <!-- Row 2 — Position / Department (admin-locked for employees) -->
           <div class="pf-group">
-            <label>Position</label>
-            <input type="text" id="f-position" placeholder="e.g. IT Technician" />
+            <label>
+              Position
+              <span class="label-lock" id="positionLockBadge">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                Admin only
+              </span>
+            </label>
+            <input type="text" id="f-position" placeholder="e.g. IT Technician" class="admin-only-field" readonly />
+            <span class="pf-hint" id="positionHint">Set by your admin</span>
           </div>
           <div class="pf-group">
-            <label>Department</label>
-            <input type="text" id="f-department" placeholder="e.g. Operations" />
+            <label>
+              Department
+              <span class="label-lock" id="deptLockBadge">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                Admin only
+              </span>
+            </label>
+            <input type="text" id="f-department" placeholder="e.g. Operations" class="admin-only-field" readonly />
+            <span class="pf-hint" id="deptHint">Set by your admin</span>
+          </div>
+          <!-- Row 3 — Mobile / Email -->
+          <div class="pf-group">
+            <label>Mobile Number</label>
+            <input type="tel" id="f-mobile" placeholder="+63 9XX XXX XXXX" />
           </div>
           <div class="pf-group">
             <label>Email Address</label>
             <input type="email" id="f-email" placeholder="your@email.com" />
           </div>
+          <!-- Row 4 — Birthday / House Address -->
           <div class="pf-group">
-            <label>Mobile Number</label>
-            <input type="tel" id="f-mobile" placeholder="+63 9XX XXX XXXX" />
+            <label>Birthday</label>
+            <input type="date" id="f-birthday" />
           </div>
-          <div class="pf-group pf-full">
-            <label>Address</label>
+          <div class="pf-group">
+            <label>House Address</label>
             <input type="text" id="f-address" placeholder="Your complete address" />
           </div>
         </div>
@@ -652,44 +642,57 @@
   </div>
 
   <!-- ═══════════════════════════════════════ -->
-  <!-- TAB: SECURITY                           -->
+  <!-- TAB: ATTENDANCE (DTR)                   -->
   <!-- ═══════════════════════════════════════ -->
-  <div class="panel-content" id="tab-security">
-    <div class="profile-section ps-security">
-      <div class="profile-section-title">
-        <span class="section-dot dot-purple"></span>
-        Change Password
-      </div>
+  <div class="panel-content" id="tab-dtr">
 
-      <div class="pf-grid" style="max-width:560px;">
-        <div class="pf-group pf-full">
-          <label>Current Password</label>
-          <input type="password" id="s-current" class="purple-focus" placeholder="Enter your current password" />
-        </div>
-        <div class="pf-group">
-          <label>New Password</label>
-          <input type="password" id="s-new" class="purple-focus" placeholder="Minimum 6 characters" oninput="checkStrength(this.value)" />
-          <div class="strength-bar-wrap"><div class="strength-bar" id="strengthBar"></div></div>
-          <div class="strength-text" id="strengthText"></div>
-        </div>
-        <div class="pf-group">
-          <label>Confirm New Password</label>
-          <input type="password" id="s-confirm" class="purple-focus" placeholder="Re-enter new password" />
-        </div>
-      </div>
+    <!-- Clock + Punch -->
+    <div class="profile-section" style="text-align:center;padding-top:48px;padding-bottom:48px;">
+      <div class="digital-clock" id="liveClock">00:00:00 AM</div>
+      <div class="current-date" id="liveDate">Loading date...</div>
 
-      <div class="pf-save-row" style="max-width:560px;">
-        <button class="btn btn-ghost" onclick="clearPasswordFields()">Clear</button>
-        <button class="btn btn-primary" style="background:linear-gradient(135deg,#7c3aed,#a78bfa);box-shadow:0 2px 12px rgba(167,139,250,0.25);" onclick="savePassword()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-          Update Password
+      <div style="margin-top:36px;">
+        <button class="btn-punch" id="btnPunch" onclick="handlePunch()">
+          <svg class="punch-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          <span class="punch-text" id="punchText">Time In</span>
         </button>
       </div>
 
-      <div style="margin-top:24px;padding:14px 16px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.15);border-radius:var(--radius);font-size:12px;color:#fbbf24;font-family:'JetBrains Mono',monospace;line-height:1.6;max-width:560px;">
-        ⚠ Password changes update your session only. Your admin manages the credentials file. Contact your system administrator to make the change permanent.
+      <div id="punchStatusText" style="margin-top:20px;font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">
+        Ready to start your shift.
       </div>
     </div>
+
+    <!-- DTR Log -->
+    <div class="profile-section">
+      <div class="profile-section-title" style="margin-bottom:16px;">
+        <span class="section-dot dot-green"></span>
+        Recent Logs
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Time In</th>
+              <th>Time Out</th>
+              <th>Hours</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="dtrHistoryBody">
+            <!-- Populated by JS from Supabase dtr_logs table -->
+          </tbody>
+        </table>
+      </div>
+      <!-- Empty state shown when no records exist yet -->
+      <div id="dtrEmptyState" class="dtr-empty" style="display:none;">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M16 2v4M8 2v4M2 10h20"/></svg>
+        <div style="color:var(--text-muted)">No attendance records yet.</div>
+        <div style="color:var(--text-dim);font-size:10px;margin-top:2px;">Logs will appear here after your first time-in.</div>
+      </div>
+    </div>
+
   </div>
 
 </div>
@@ -700,11 +703,10 @@
 <script src="config.js"></script>
 <script src="auth.js"></script>
 <script>
-/* ─────────────────────────────────────────
-   profile.js (inline)
-   ───────────────────────────────────────── */
 
 const EMP_URL = `${SUPABASE_URL}/rest/v1/employees`;
+// DTR logs table — to be created in Supabase
+const DTR_URL = `${SUPABASE_URL}/rest/v1/dtr_logs`;
 
 function makeHeaders(extra = {}) {
   return {
@@ -722,11 +724,14 @@ async function sbGet(url) {
   return res.json();
 }
 
+async function sbPost(url, body) {
+  const res = await fetch(url, { method: 'POST', headers: makeHeaders(), body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res.json();
+}
+
 async function sbPatch(url, body) {
-  const res = await fetch(url, {
-    method: 'PATCH', headers: makeHeaders(),
-    body: JSON.stringify(body),
-  });
+  const res = await fetch(url, { method: 'PATCH', headers: makeHeaders(), body: JSON.stringify(body) });
   if (!res.ok) throw new Error(`${res.status}`);
   return res.json();
 }
@@ -735,6 +740,7 @@ async function sbPatch(url, body) {
 let session   = null;
 let empRecord = null;
 let isEditing = false;
+let isAdmin   = false;
 
 // ── UTILS ──
 function setLoading(on) {
@@ -766,13 +772,16 @@ function setVal(id, v) { const el = document.getElementById(id); if (el) el.valu
 function setText(id, v, fallback = '—') {
   const el = document.getElementById(id);
   if (!el) return;
-  if (!v) {
-    el.textContent = fallback;
-    el.classList.add('empty');
-  } else {
-    el.textContent = v;
-    el.classList.remove('empty');
-  }
+  if (!v) { el.textContent = fallback; el.classList.add('empty'); }
+  else    { el.textContent = v;        el.classList.remove('empty'); }
+}
+
+function formatBirthday(raw) {
+  if (!raw) return null;
+  try {
+    const d = new Date(raw + 'T00:00:00');
+    return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+  } catch { return raw; }
 }
 
 // ── TABS ──
@@ -781,6 +790,7 @@ function switchTab(name, btn) {
   document.querySelectorAll('.ptab-link').forEach(el => el.classList.remove('active'));
   document.getElementById(`tab-${name}`).classList.add('visible');
   btn.classList.add('active');
+  if (name === 'dtr') loadDtrLogs();
 }
 
 // ── INIT ──
@@ -788,18 +798,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   session = AUTH.requireAuth();
   if (!session) return;
 
+  isAdmin = session.role === 'admin';
+
   // Header chip
   document.getElementById('userChipName').textContent = session.display_name || session.username;
   document.getElementById('userChipRole').textContent = session.role;
 
-  // Back link — route everyone to the Central Hub
-  document.getElementById('backLink').href = 'home.html';
-  document.getElementById('backLink').querySelector('svg').nextSibling.textContent = ' Back to Hub';
+  // Unlock position/department fields for admins
+  if (isAdmin) {
+    ['f-position', 'f-department'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.readOnly = false; el.classList.remove('admin-only-field'); }
+    });
+    ['positionLockBadge', 'deptLockBadge'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    ['positionHint', 'deptHint'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+  }
 
   setLoading(true);
   await loadEmployeeRecord();
   setLoading(false);
   populateAll();
+  initClock();
 });
 
 async function loadEmployeeRecord() {
@@ -821,6 +846,7 @@ function populateAll() {
   const email       = empRecord?.email      || '';
   const mobile      = empRecord?.mobile     || '';
   const address     = empRecord?.address    || '';
+  const birthday    = empRecord?.birthday   || '';
 
   // Hero
   document.getElementById('heroAvatar').textContent   = initials(displayName);
@@ -834,24 +860,25 @@ function populateAll() {
   badge.textContent = role === 'admin' ? 'Admin' : 'Employee';
   badge.className   = `profile-hero-badge ${role === 'admin' ? 'badge-admin' : 'badge-employee'}`;
 
-  // Role badge color in header
-  const chipRole = document.getElementById('userChipRole');
   if (role === 'employee') {
-    chipRole.style.cssText = 'font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:rgba(52,211,153,0.1);color:var(--green);border:1px solid rgba(52,211,153,0.2);';
+    document.getElementById('userChipRole').style.cssText =
+      'font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:rgba(52,211,153,0.1);color:var(--green);border:1px solid rgba(52,211,153,0.2);';
   }
 
   // Read-only view
   setText('rv-displayName', displayName);
   setText('rv-username',    session.username);
+  setText('rv-birthday',    birthday ? formatBirthday(birthday) : null, 'Not set');
   setText('rv-position',    pos,     'Not set');
   setText('rv-department',  dept,    'Not set');
   setText('rv-email',       email,   'Not set');
   setText('rv-mobile',      mobile,  'Not set');
   setText('rv-address',     address, 'Not set');
 
-  // Edit form pre-fill
+  // Edit form
   setVal('f-displayName', displayName);
   setVal('f-username',    session.username);
+  setVal('f-birthday',    birthday);
   setVal('f-position',    pos);
   setVal('f-department',  dept);
   setVal('f-email',       email);
@@ -862,24 +889,22 @@ function populateAll() {
 // ── EDIT TOGGLE ──
 function toggleEdit() {
   isEditing = !isEditing;
-  document.getElementById('infoReadView').style.display = isEditing ? 'none' : 'block';
+  document.getElementById('infoReadView').style.display = isEditing ? 'none'  : 'block';
   document.getElementById('infoEditView').style.display = isEditing ? 'block' : 'none';
   const btn = document.getElementById('editToggleBtn');
   if (isEditing) {
     btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel`;
     btn.classList.remove('btn-ghost');
-    // focus first editable
     setTimeout(() => document.getElementById('f-displayName')?.focus(), 50);
   } else {
     btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit`;
     btn.className = 'btn btn-ghost';
-    // reset edit form to current values
     populateAll();
   }
 }
 
 function cancelEdit() {
-  isEditing = true; // toggleEdit will flip it
+  isEditing = true;
   toggleEdit();
 }
 
@@ -888,12 +913,17 @@ async function saveInfo() {
   if (!displayName) { toast('Display name cannot be empty.', 'error'); return; }
 
   const updates = {
-    position:   val('f-position'),
-    department: val('f-department'),
-    email:      val('f-email'),
-    mobile:     val('f-mobile'),
-    address:    val('f-address'),
+    email:    val('f-email'),
+    mobile:   val('f-mobile'),
+    address:  val('f-address'),
+    birthday: val('f-birthday') || null,
   };
+
+  // Only admins can update position/department
+  if (isAdmin) {
+    updates.position   = val('f-position');
+    updates.department = val('f-department');
+  }
 
   setLoading(true);
   try {
@@ -903,7 +933,6 @@ async function saveInfo() {
       empRecord = { ...empRecord, ...updates, name: displayName };
     }
 
-    // Update session display_name
     const s = AUTH.getSession();
     if (s) {
       s.display_name = displayName;
@@ -911,16 +940,13 @@ async function saveInfo() {
       session.display_name = displayName;
     }
 
-    // Update hero + header
     document.getElementById('userChipName').textContent = displayName;
     populateAll();
 
-    // Show saved indicator
     const ind = document.getElementById('savedIndicator');
     ind.style.display = 'flex';
     setTimeout(() => { ind.style.display = 'none'; }, 3000);
 
-    // Switch back to read view
     isEditing = true;
     toggleEdit();
     toast('Profile updated successfully.', 'success');
@@ -931,155 +957,185 @@ async function saveInfo() {
   }
 }
 
-// ── SECURITY ──
-function checkStrength(pw) {
-  const bar  = document.getElementById('strengthBar');
-  const text = document.getElementById('strengthText');
-  if (!pw) { bar.style.width = '0%'; text.textContent = ''; return; }
-
-  let score = 0;
-  if (pw.length >= 6)  score++;
-  if (pw.length >= 10) score++;
-  if (/[A-Z]/.test(pw)) score++;
-  if (/[0-9]/.test(pw)) score++;
-  if (/[^A-Za-z0-9]/.test(pw)) score++;
-
-  const levels = [
-    { w: '20%', c: 'var(--red)',    t: 'Very Weak' },
-    { w: '40%', c: 'var(--orange)', t: 'Weak' },
-    { w: '60%', c: 'var(--yellow)', t: 'Fair' },
-    { w: '80%', c: 'var(--accent)', t: 'Strong' },
-    { w: '100%',c: 'var(--green)', t: 'Very Strong' },
-  ];
-  const lvl = levels[Math.min(score - 1, 4)] || levels[0];
-  bar.style.width      = lvl.w;
-  bar.style.background = lvl.c;
-  text.textContent     = lvl.t;
-  text.style.color     = lvl.c;
-}
-
-function clearPasswordFields() {
-  ['s-current','s-new','s-confirm'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
-  });
-  document.getElementById('strengthBar').style.width = '0%';
-  document.getElementById('strengthText').textContent = '';
-}
-
-async function savePassword() {
-  const current = document.getElementById('s-current').value;
-  const newPass  = document.getElementById('s-new').value;
-  const confirm  = document.getElementById('s-confirm').value;
-
-  if (!current) { toast('Enter your current password.', 'error'); return; }
-  if (!newPass)  { toast('Enter a new password.', 'error'); return; }
-  if (newPass.length < 6) { toast('New password must be at least 6 characters.', 'error'); return; }
-  if (newPass !== confirm) { toast('Passwords do not match.', 'error'); return; }
-
-  // Verify current password against users.json
-  setLoading(true);
-  try {
-    const currentHash = await AUTH.hashPassword(current);
-    // Load users.json to verify
-    const res   = await fetch('users.json?nocache=' + Date.now());
-    const data  = await res.json();
-    const uname = (session.username || '').toLowerCase();
-    const user  = (data.users || []).find(u => u.username.toLowerCase() === uname);
-
-    if (!user) {
-      toast('Could not find your account record.', 'error');
-      return;
-    }
-
-    if (currentHash !== user.password_hash) {
-      toast('Current password is incorrect.', 'error');
-      return;
-    }
-
-    const newHash = await AUTH.hashPassword(newPass);
-    toast(`New password hash generated. Share with your admin to update users.json:`, 'info');
-
-    // Show the hash so the user/admin can update users.json
-    setTimeout(() => {
-      const el = document.createElement('div');
-      el.style.cssText = `
-        position:fixed;bottom:80px;right:24px;
-        background:var(--surface2);border:1px solid var(--border-bright);
-        border-radius:var(--radius);padding:16px;max-width:420px;
-        font-family:'JetBrains Mono',monospace;font-size:11px;
-        color:var(--text);z-index:9998;box-shadow:0 8px 32px rgba(0,0,0,0.4);
-      `;
-      el.innerHTML = `
-        <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">New Password Hash</div>
-        <div style="word-break:break-all;color:var(--accent-bright);margin-bottom:10px;line-height:1.5;">${newHash}</div>
-        <div style="font-size:10px;color:var(--text-muted);margin-bottom:10px;">Give this hash to your admin to update users.json for <strong style="color:var(--text)">${session.username}</strong>.</div>
-        <button onclick="navigator.clipboard.writeText('${newHash}').then(()=>toast('Hash copied!','success'));this.textContent='✓ Copied!'"
-          style="padding:5px 12px;background:var(--accent-dim);color:#fff;border:none;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;margin-right:6px;">
-          Copy Hash
-        </button>
-        <button onclick="this.parentElement.remove()"
-          style="padding:5px 12px;background:var(--surface3);color:var(--text-muted);border:1px solid var(--border);border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;">
-          Dismiss
-        </button>
-      `;
-      document.body.appendChild(el);
-    }, 500);
-
-    clearPasswordFields();
-  } catch (e) {
-    toast(`Error: ${e.message}`, 'error');
-  } finally {
-    setLoading(false);
-  }
-}
-
-// ── DIGITAL CLOCK LOGIC ──
+// ── DIGITAL CLOCK ──
 function initClock() {
   const clockEl = document.getElementById('liveClock');
-  const dateEl = document.getElementById('liveDate');
+  const dateEl  = document.getElementById('liveDate');
   if (!clockEl || !dateEl) return;
 
   function updateClock() {
     const now = new Date();
     clockEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    dateEl.textContent = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    dateEl.textContent  = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   }
-  
+
   setInterval(updateClock, 1000);
   updateClock();
 }
 
-// Start clock when page loads
-document.addEventListener('DOMContentLoaded', initClock);
+// ── PUNCH LOGIC ──
+// todayLog: the dtr_logs row for today (if any), loaded when the tab opens
+let todayLog   = null;
+let isTimedIn  = false;
 
-// ── PUNCH MOCK LOGIC ──
-let isTimedIn = false;
+async function loadDtrLogs() {
+  if (!empRecord) {
+    renderDtrLogs([]);
+    return;
+  }
 
-function handlePunch() {
-  const btn = document.getElementById('btnPunch');
-  const text = document.getElementById('punchText');
-  const status = document.getElementById('punchStatusText');
-  
-  // Grab the current time without seconds for the status message
-  const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  setLoading(true);
+  try {
+    // Fetch last 30 days of logs for this employee
+    const rows = await sbGet(
+      `${DTR_URL}?employee_id=eq.${empRecord.id}&order=date.desc&limit=30&select=*`
+    );
 
-  if (!isTimedIn) {
-    // Switch to Time Out state
-    isTimedIn = true;
-    btn.classList.add('punch-out');
-    text.textContent = 'Time Out';
-    status.innerHTML = `Timed in successfully at <strong style="color:var(--text)">${now}</strong>. Have a great shift!`;
-    toast('Timed in successfully!', 'success');
-  } else {
-    // Switch back to Time In state
-    isTimedIn = false;
-    btn.classList.remove('punch-out');
-    text.textContent = 'Time In';
-    status.innerHTML = `Timed out successfully at <strong style="color:var(--text)">${now}</strong>. See you tomorrow!`;
-    toast('Timed out successfully!', 'info');
+    // Check if there is already a log for today
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    todayLog = rows.find(r => r.date === today) || null;
+
+    if (todayLog) {
+      isTimedIn = !todayLog.time_out; // has time_in but no time_out = still punched in
+      updatePunchButton();
+    }
+
+    renderDtrLogs(rows);
+  } catch (e) {
+    console.error('[dtr] load failed:', e);
+    // Table may not exist yet — show empty state gracefully
+    renderDtrLogs([]);
+  } finally {
+    setLoading(false);
   }
 }
+
+function renderDtrLogs(rows) {
+  const tbody    = document.getElementById('dtrHistoryBody');
+  const emptyEl  = document.getElementById('dtrEmptyState');
+
+  if (!rows.length) {
+    tbody.innerHTML = '';
+    emptyEl.style.display = 'flex';
+    return;
+  }
+
+  emptyEl.style.display = 'none';
+  tbody.innerHTML = rows.map(r => {
+    const timeIn  = r.time_in  ? formatTime(r.time_in)  : '—';
+    const timeOut = r.time_out ? formatTime(r.time_out) : '—';
+    const hours   = (r.time_in && r.time_out) ? calcHours(r.time_in, r.time_out) : '—';
+    const isLate  = r.is_late;
+    const statusBadge = r.time_out
+      ? (isLate ? `<span class="badge badge-low">Late</span>` : `<span class="badge badge-ok">Present</span>`)
+      : `<span class="badge badge-spare">In Progress</span>`;
+
+    return `
+      <tr>
+        <td style="font-weight:600">${formatDateShort(r.date)}</td>
+        <td class="mono" style="color:${isLate ? 'var(--orange)' : 'var(--text)'}">${timeIn}</td>
+        <td class="mono" style="color:var(--text)">${timeOut}</td>
+        <td class="mono" style="color:var(--text-muted)">${hours}</td>
+        <td>${statusBadge}</td>
+      </tr>`;
+  }).join('');
+}
+
+function formatTime(isoOrTime) {
+  // Handles both "HH:MM:SS" and full ISO strings
+  const t = isoOrTime.includes('T') ? new Date(isoOrTime) : new Date('1970-01-01T' + isoOrTime);
+  return t.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDateShort(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function calcHours(timeIn, timeOut) {
+  const a = new Date('1970-01-01T' + timeIn);
+  const b = new Date('1970-01-01T' + timeOut);
+  const diffMs = b - a;
+  if (diffMs <= 0) return '—';
+  const h = Math.floor(diffMs / 3600000);
+  const m = Math.floor((diffMs % 3600000) / 60000);
+  return `${h}h ${m}m`;
+}
+
+function updatePunchButton() {
+  const btn  = document.getElementById('btnPunch');
+  const text = document.getElementById('punchText');
+  if (isTimedIn) {
+    btn.classList.add('punch-out');
+    text.textContent = 'Time Out';
+  } else {
+    btn.classList.remove('punch-out');
+    text.textContent = 'Time In';
+  }
+}
+
+async function handlePunch() {
+  if (!empRecord) {
+    toast('Employee record not found. Contact your admin.', 'error');
+    return;
+  }
+
+  const now     = new Date();
+  const nowTime = now.toTimeString().slice(0, 8); // "HH:MM:SS"
+  const today   = now.toISOString().slice(0, 10);
+  const display = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const status  = document.getElementById('punchStatusText');
+
+  setLoading(true);
+  try {
+    if (!isTimedIn) {
+      // ── TIME IN ──
+      if (todayLog) {
+        toast('You already have a record for today.', 'error');
+        return;
+      }
+
+      const newLog = {
+        employee_id: empRecord.id,
+        date:        today,
+        time_in:     nowTime,
+        time_out:    null,
+        is_late:     false, // Server/admin can flag this later
+      };
+
+      const [saved] = await sbPost(DTR_URL, newLog);
+      todayLog  = saved;
+      isTimedIn = true;
+      updatePunchButton();
+      status.innerHTML = `Timed in at <strong style="color:var(--text)">${display}</strong>. Have a great shift!`;
+      toast('Time in recorded.', 'success');
+
+    } else {
+      // ── TIME OUT ──
+      if (!todayLog) {
+        toast('No time-in found for today.', 'error');
+        return;
+      }
+
+      await sbPatch(`${DTR_URL}?id=eq.${todayLog.id}`, { time_out: nowTime });
+      todayLog.time_out = nowTime;
+      isTimedIn = false;
+      updatePunchButton();
+      status.innerHTML = `Timed out at <strong style="color:var(--text)">${display}</strong>. See you tomorrow!`;
+      toast('Time out recorded.', 'info');
+    }
+
+    // Refresh the log table
+    await loadDtrLogs();
+
+  } catch (e) {
+    console.error('[punch] failed:', e);
+    toast(`Punch failed: ${e.message}`, 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
 </script>
 </body>
 </html>
