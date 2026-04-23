@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────
-   StockDesk — app.js
+   SIS CENTRAL HUB
    Core inventory logic: state, CRUD, render,
    sort, export, import, modal, toast, keyboard shortcuts
    ───────────────────────────────────────── */
@@ -11,6 +11,11 @@ let sortField = 'name';
 let sortAsc = true;
 let selectedIds = new Set();
 let currentRole = 'employee'; // set from session on init
+
+// Helper — treats both 'admin' and 'superadmin' as privileged
+function isAdminRole() {
+  return currentRole === 'admin' || currentRole === 'superadmin';
+}
 let lastFiltered = []; // tracks the current filtered/sorted view for export
 
 // ── SUPABASE CLIENT ────────────────────────
@@ -282,7 +287,7 @@ function renderTable() {
   } else {
     tbody.innerHTML = filtered.map(item => `
       <tr id="row-${item.id}" class="${selectedIds.has(item.id) ? 'row-selected' : ''}">
-        ${currentRole === 'admin' ? `
+        ${isAdminRole() ? `
         <td class="col-check" onclick="event.stopPropagation()">
           <input type="checkbox" class="row-check" data-id="${item.id}"
             ${selectedIds.has(item.id) ? 'checked' : ''}
@@ -295,7 +300,7 @@ function renderTable() {
         <td><span style="color:var(--text-muted);font-size:12px">${item.category || '—'}</span></td>
         <td style="font-size:12px;color:var(--text-muted)">${item.location || '—'}</td>
         <td>${itemStatusBadge(item.status)}</td>
-        ${currentRole === 'admin' ? `
+        ${isAdminRole() ? `
         <td onclick="event.stopPropagation()">
           <div class="td-actions">
             <button class="btn btn-edit"   onclick="openModal('${item.id}')">Edit</button>
@@ -415,7 +420,7 @@ function clearSelection() {
 
 // ── BULK DELETE ────────────────────────────
 async function bulkDelete() {
-  if (currentRole !== 'admin') { toast('Admin access required.', 'error'); return; }
+  if (!isAdminRole()) { toast('Admin access required.', 'error'); return; }
   const count = selectedIds.size;
   if (!count) return;
   if (!confirm(`Delete ${count} selected item${count > 1 ? 's' : ''}? This cannot be undone.`)) return;
@@ -435,7 +440,7 @@ async function bulkDelete() {
 
 // ── BULK STATUS CHANGE ─────────────────────
 async function bulkChangeStatus() {
-  if (currentRole !== 'admin') { toast('Admin access required.', 'error'); return; }
+  if (!isAdminRole()) { toast('Admin access required.', 'error'); return; }
   const status = document.getElementById('bulkStatusSelect').value;
   if (!status) { toast('Please select a status to apply.', 'error'); return; }
   const count = selectedIds.size;
@@ -466,7 +471,7 @@ function flashRow(id) {
 
 // ── MODAL ──────────────────────────────────
 function openModal(id = null) {
-  if (currentRole !== 'admin') { toast('Admin access required.', 'error'); return; }
+  if (!isAdminRole()) { toast('Admin access required.', 'error'); return; }
   editId = id;
   const isEdit = !!id;
   document.getElementById('modalTitle').textContent = isEdit ? 'Edit Item' : 'Add Item';
@@ -551,7 +556,7 @@ function closeModalOutside(e) {
 }
 
 async function saveItem() {
-  if (currentRole !== 'admin') { toast('Admin access required.', 'error'); return; }
+  if (!isAdminRole()) { toast('Admin access required.', 'error'); return; }
   const brand = document.getElementById('fBrand').value.trim();
   const model = document.getElementById('fModel').value.trim();
   if (!brand && !model) { toast('Brand or Model is required.', 'error'); return; }
@@ -628,7 +633,7 @@ async function saveItem() {
 
 // ── DELETE ─────────────────────────────────
 async function deleteItem(id) {
-  if (currentRole !== 'admin') { toast('Admin access required.', 'error'); return; }
+  if (!isAdminRole()) { toast('Admin access required.', 'error'); return; }
   if (!confirm('Delete this item?')) return;
   showLoading(true);
   try {
@@ -952,7 +957,7 @@ document.addEventListener('DOMContentLoaded', function () {
   currentRole = session.role || 'employee';
 
   // Show/hide admin-only header controls
-  const isAdmin = currentRole === 'admin';
+  const isAdmin = isAdminRole();
   ['btn-add-item','btn-import','btn-export'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = isAdmin ? '' : 'none';
@@ -990,7 +995,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // Hide employee-irrelevant UI elements
-  if (currentRole !== 'admin') {
+  if (!isAdmin) {
     // Hide select-all checkbox column header
     const selectAllTh = document.querySelector('th.col-check');
     if (selectAllTh) selectAllTh.style.visibility = 'hidden';

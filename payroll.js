@@ -874,8 +874,8 @@ document.addEventListener('DOMContentLoaded', async function () {
   const session = AUTH.requireAuth();
   if (!session) return;
 
-  // Admin only
-  if (session.role !== 'admin') {
+  // Admin + superadmin only
+  if (session.role !== 'admin' && session.role !== 'superadmin') {
     document.body.innerHTML = `<div style="display:grid;place-items:center;height:100vh;font-family:'Barlow',sans-serif;color:#e8edf5;background:#080c14;">
       <div style="text-align:center">
         <div style="font-size:32px;margin-bottom:12px">🔒</div>
@@ -899,4 +899,4 @@ document.addEventListener('DOMContentLoaded', async function () {
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   await loadEmployees();
-}); 
+});

@@ -248,7 +248,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   const session = AUTH.requireAuth();
   if (!session) return;
 
-  const isAdmin    = session.role === 'admin';
+  const isAdmin    = session.role === 'admin' || session.role === 'superadmin';
   const name       = session.display_name || session.username;
   const initials   = name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
