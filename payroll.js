@@ -895,6 +895,10 @@ document.addEventListener('DOMContentLoaded', async function () {
   if (chipName) chipName.textContent = session.display_name || session.username;
   if (chipRole) chipRole.textContent = session.role;
 
+  // Show Super Admin tab only for superadmins
+  const navSA = document.getElementById('navSuperAdmin');
+  if (navSA) navSA.style.display = (session.role === 'superadmin') ? '' : 'none';
+
   // Default pay month to current month
   const now = new Date();
   document.getElementById('payMonth').value =
