@@ -323,3 +323,30 @@
   .section-header     { flex-direction: column; align-items: flex-start; gap: 12px; }
   .payroll-tabs       { flex-wrap: wrap; }
 }
+
+/* ── GOV-TOGGLE OVERRIDE — beats .form-group rules from styles.css ── */
+/* .form-group label sets flex-direction:column and .form-group input sets width:100%
+   which both break the toggle row layout — these rules restore correct behavior */
+.form-group label.gov-toggle {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 10px !important;
+  font-size: inherit !important;
+  font-family: inherit !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  color: var(--text) !important;
+  cursor: pointer;
+  user-select: none;
+  flex-wrap: nowrap;
+}
+
+.form-group .gov-toggle input[type="checkbox"] {
+  display: none !important;
+  width: auto !important;
+  padding: 0 !important;
+  border: none !important;
+  background: none !important;
+  box-shadow: none !important;
+}
