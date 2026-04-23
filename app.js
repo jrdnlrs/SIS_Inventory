@@ -967,6 +967,10 @@ document.addEventListener('DOMContentLoaded', function () {
   const navPayroll = document.getElementById('navPayroll');
   if (navPayroll) navPayroll.style.display = isAdmin ? '' : 'none';
 
+  // Show Super Admin tab only for superadmins
+  const navSA = document.getElementById('navSuperAdmin');
+  if (navSA) navSA.style.display = (currentRole === 'superadmin') ? '' : 'none';
+
   // Populate user chip in header
   const chipName = document.getElementById('userChipName');
   const chipRole = document.getElementById('userChipRole');

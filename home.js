@@ -248,22 +248,31 @@ document.addEventListener('DOMContentLoaded', async function () {
   const session = AUTH.requireAuth();
   if (!session) return;
 
-  // Superadmins have their own dedicated page — redirect if they land here
-  if (session.role === 'superadmin') {
-    window.location.href = 'superadmin.html';
-    return;
-  }
-
-  const isAdmin    = session.role === 'admin';
-  const name       = session.display_name || session.username;
-  const initials   = name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  const isSuperAdmin = session.role === 'superadmin';
+  const isAdmin      = session.role === 'admin' || isSuperAdmin;
+  const name         = session.display_name || session.username;
+  const initials     = name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
   // Populate header chip
   document.getElementById('userChipName').textContent = name;
   document.getElementById('userChipRole').textContent = session.role;
 
+  // ── Show nav tabs based on role ──
+  // Admins and superadmins see Inventory + Payroll tabs
   if (isAdmin) {
-    // ── Admin view ──
+    const navInventory = document.getElementById('navInventory');
+    const navPayroll   = document.getElementById('navPayroll');
+    if (navInventory) navInventory.style.display = '';
+    if (navPayroll)   navPayroll.style.display   = '';
+  }
+  // Only superadmins see the Super Admin tab
+  if (isSuperAdmin) {
+    const navSA = document.getElementById('navSuperAdmin');
+    if (navSA) navSA.style.display = '';
+  }
+
+  if (isAdmin) {
+    // ── Admin / Super Admin view ──
     document.getElementById('adminView').style.display = 'block';
     document.getElementById('adminGreeting').textContent = `${greeting()}, ${name.split(' ')[0]} 👋`;
     document.getElementById('hubDate').textContent = formatDate();
