@@ -20,14 +20,14 @@
       "username": "FCC003",
       "display_name": "Milo Cruspero",
       "password_hash": "994ebb732c477129b4bf9df9572775ca68d01abd8dd5110cc617d08e65f26ec7",
-      "role": "admin",
+      "role": "superadmin",
       "active": true
     },
     {
       "username": "KMO004",
       "display_name": "Kristel Olaco",
       "password_hash": "e4278a25efdda54567945c3be8555d650fd9bbcb872f737b0c92a2bae98d0ecb",
-      "role": "admin",
+      "role": "superadmin",
       "active": true
     },
     {
