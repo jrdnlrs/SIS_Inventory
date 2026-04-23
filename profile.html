@@ -829,8 +829,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadEmployeeRecord() {
   try {
-    const name = encodeURIComponent(session.display_name || session.username);
-    const rows = await sbGet(`${EMP_URL}?name=eq.${name}&select=*&limit=1`);
+    const name = encodeURIComponent('%' + (session.display_name || session.username) + '%');
+    const rows = await sbGet(`${EMP_URL}?name=ilike.${name}&select=*&limit=1`);
     empRecord  = rows && rows.length ? rows[0] : null;
   } catch (e) {
     console.warn('[profile] could not load employee record:', e.message);

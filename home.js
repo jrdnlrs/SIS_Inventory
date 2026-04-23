@@ -248,7 +248,13 @@ document.addEventListener('DOMContentLoaded', async function () {
   const session = AUTH.requireAuth();
   if (!session) return;
 
-  const isAdmin    = session.role === 'admin' || session.role === 'superadmin';
+  // Superadmins have their own dedicated page — redirect if they land here
+  if (session.role === 'superadmin') {
+    window.location.href = 'superadmin.html';
+    return;
+  }
+
+  const isAdmin    = session.role === 'admin';
   const name       = session.display_name || session.username;
   const initials   = name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
 

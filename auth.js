@@ -201,7 +201,7 @@ const AUTH = (() => {
   function requireSuperAdmin() {
     const s = requireAuth();
     if (s && s.role !== 'superadmin') {
-      window.location.href = 'index.html'; // Kick standard admins out
+      window.location.href = 'home.html'; // Kick non-superadmins to hub
       return null;
     }
     return s;

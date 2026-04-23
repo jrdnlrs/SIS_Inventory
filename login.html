@@ -377,7 +377,9 @@
     if (reason === 'timeout') show('bannerTimeout');
     if (reason === 'logout')  show('bannerLogout');
     const session = AUTH.getSession();
-    if (session) window.location.href = 'home.html';
+    if (session) {
+      window.location.href = session.role === 'superadmin' ? 'superadmin.html' : 'home.html';
+    }
   })();
 
   function show(id) { document.getElementById(id).classList.add('show'); }
@@ -466,7 +468,8 @@
     if (result.ok) {
       btnText.textContent = '✓ Access Granted';
       btn.style.background = 'linear-gradient(135deg, #065f46, #34d399)';
-      setTimeout(() => { window.location.href = 'home.html'; }, 600);
+      const dest = result.user.role === 'superadmin' ? 'superadmin.html' : 'home.html';
+      setTimeout(() => { window.location.href = dest; }, 600);
       return;
     }
 

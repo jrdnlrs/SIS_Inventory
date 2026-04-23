@@ -744,17 +744,19 @@ async function saveAndGeneratePayslips() {
 
     // Save individual records
     const records = computedRows.map(r => ({
-      period_id:    periodId,
-      employee_id:  r.emp.id,
+      period_id:     periodId,
+      employee_id:   r.emp.id,
       employee_name: r.emp.name,
-      days_present: r.daysPresent,
-      working_days: r.workingDays,
-      gross_pay:    r.gross,
-      sss:          r.sss,
-      philhealth:   r.philhealth,
-      pagibig:      r.pagibig,
-      tax:          r.tax,
-      net_pay:      r.net,
+      emp_type:      r.emp_type || 'regular',
+      event_name:    r.event_name || null,
+      days_present:  r.daysPresent,
+      working_days:  r.workingDays,
+      gross_pay:     r.gross,
+      sss:           r.sss,
+      philhealth:    r.philhealth,
+      pagibig:       r.pagibig,
+      tax:           r.tax,
+      net_pay:       r.net,
     }));
 
     await sbPost(RECORD_URL, records);

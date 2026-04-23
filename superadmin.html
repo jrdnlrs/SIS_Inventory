@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SIS — Super Admin Control Center</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="payrollstyles.css">
 <style>
@@ -158,14 +159,18 @@
     <div class="section-header">
       <div>
         <div class="section-title">User Management Dashboard</div>
-        <div class="section-sub">System roster and credential overview</div>
+        <div class="section-sub">System roster, credential overview, and salary management</div>
       </div>
       <div style="display:flex; gap:10px;">
         <button class="btn btn-ghost" onclick="openTimeAdjustModal()">Manual Time Log Adjust</button>
+        <button class="btn btn-ghost" onclick="openEmpSalaryModal()">Manage Employee Salaries</button>
         <button class="btn btn-primary" onclick="openHashModal()">Create User Account</button>
       </div>
     </div>
-    <div class="table-wrap">
+
+    <!-- Auth users from users.json -->
+    <div class="section-title" style="font-size:13px;margin-bottom:10px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:1px;">System Accounts (users.json)</div>
+    <div class="table-wrap" style="margin-bottom:28px;">
       <table>
         <thead>
           <tr>
@@ -181,7 +186,29 @@
         </tbody>
       </table>
     </div>
-    <p style="margin-top:10px; font-size:11px; color:var(--text-muted);">* Note: Because StockDesk uses a static users.json for security, creating new users requires updating the JSON file directly with the generated SHA-256 hash.</p>
+
+    <!-- Payroll employees from Supabase -->
+    <div class="section-title" style="font-size:13px;margin-bottom:10px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:1px;">Payroll Employees (Supabase)</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Position</th>
+            <th>Daily Rate</th>
+            <th>SSS No.</th>
+            <th>PhilHealth No.</th>
+            <th>Pag-IBIG No.</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="saEmpTableBody">
+          <tr><td colspan="8" style="text-align:center; color:var(--text-muted);">Loading employees...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:10px; font-size:11px; color:var(--text-muted);">* System accounts use a static users.json for auth. Use the hash generator to add new login credentials.</p>
   </div>
 
   <div id="tab-audit" class="ptab-content" style="display:none">
@@ -253,7 +280,36 @@
     </div>
   </div>
 
-</div><div class="overlay" id="hashModal">
+</div><div class="overlay" id="empSalaryModal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="max-width:560px;">
+    <h2><span class="dot" style="background:var(--green);box-shadow:0 0 8px var(--green);"></span>
+      <span id="empSalaryModalTitle">Edit Employee</span>
+    </h2>
+    <div class="form-grid">
+      <div class="form-group"><label>Full Name</label><input type="text" id="saEfName" placeholder="e.g. Juan dela Cruz" /></div>
+      <div class="form-group"><label>Position</label><input type="text" id="saEfPosition" placeholder="e.g. IT Technician" /></div>
+      <div class="form-group"><label>Daily Rate (₱)</label><input type="number" id="saEfRate" placeholder="e.g. 800" min="0" step="0.01" /></div>
+      <div class="form-group"><label>Status</label>
+        <select id="saEfStatus">
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div class="form-group"><label>SSS Number</label><input type="text" id="saEfSss" placeholder="XX-XXXXXXX-X" /></div>
+      <div class="form-group"><label>PhilHealth Number</label><input type="text" id="saEfPhilhealth" placeholder="XX-XXXXXXXXX-X" /></div>
+      <div class="form-group form-full"><label>Pag-IBIG Number</label><input type="text" id="saEfPagibig" placeholder="XXXX-XXXX-XXXX" /></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('empSalaryModal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSaEmployee()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px"><polyline points="20 6 9 17 4 12"/></svg>
+        Save Employee
+      </button>
+    </div>
+  </div>
+</div>
+
+
   <div class="modal">
     <h2><span class="dot" style="background:#a78bfa;box-shadow:0 0 8px #a78bfa;"></span> Create User Account</h2>
     <p style="font-size:13px; color:var(--text-muted); margin-bottom:18px;">
@@ -460,6 +516,7 @@
   // TAB 2: USER MANAGEMENT & HASH GENERATOR
   // ══════════════════════════════════════════
   async function loadUsers() {
+    // ── Auth accounts from users.json ──
     try {
       const res  = await fetch('users.json?nocache=' + Date.now());
       const data = await res.json();
@@ -475,6 +532,108 @@
       `).join('');
     } catch (e) {
       document.getElementById('saUsersTableBody').innerHTML = `<tr><td colspan="5" style="color:var(--red);">Failed to load users.json</td></tr>`;
+    }
+
+    // ── Payroll employees from Supabase ──
+    await loadSaEmployees();
+  }
+
+  let saEmployees = [];
+  let editSaEmpId = null;
+
+  async function loadSaEmployees() {
+    const tbody = document.getElementById('saEmpTableBody');
+    try {
+      saEmployees = await sbGet(`${EMP_URL}?select=*&order=name.asc`);
+      if (!saEmployees.length) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);">No employees yet. Add them via the Payroll module.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = saEmployees.map(e => `
+        <tr>
+          <td><strong>${e.name}</strong></td>
+          <td style="color:var(--text-muted);font-size:12px">${e.position || '—'}</td>
+          <td class="mono">₱${(e.daily_rate || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td>
+          <td class="mono" style="font-size:11px;color:var(--text-muted)">${e.sss_no || '—'}</td>
+          <td class="mono" style="font-size:11px;color:var(--text-muted)">${e.philhealth_no || '—'}</td>
+          <td class="mono" style="font-size:11px;color:var(--text-muted)">${e.pagibig_no || '—'}</td>
+          <td><span class="badge ${e.status === 'active' ? 'badge-active' : 'badge-inactive'}">${e.status}</span></td>
+          <td>
+            <div class="td-actions">
+              <button class="btn btn-edit" onclick="openEmpSalaryModal('${e.id}')">Edit</button>
+              <button class="btn btn-danger" onclick="deleteSaEmployee('${e.id}', '${e.name.replace(/'/g, "\\'")}')">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="8" style="color:var(--red);">Failed to load employees.</td></tr>`;
+    }
+  }
+
+  function openEmpSalaryModal(id = null) {
+    editSaEmpId = id;
+    const emp = id ? saEmployees.find(e => e.id === id) || {} : {};
+    document.getElementById('empSalaryModalTitle').textContent = id ? 'Edit Employee' : 'Add Employee';
+    document.getElementById('saEfName').value        = emp.name          || '';
+    document.getElementById('saEfPosition').value    = emp.position      || '';
+    document.getElementById('saEfRate').value        = emp.daily_rate    || '';
+    document.getElementById('saEfSss').value         = emp.sss_no        || '';
+    document.getElementById('saEfPhilhealth').value  = emp.philhealth_no || '';
+    document.getElementById('saEfPagibig').value     = emp.pagibig_no    || '';
+    document.getElementById('saEfStatus').value      = emp.status        || 'active';
+    document.getElementById('empSalaryModal').classList.add('open');
+    setTimeout(() => document.getElementById('saEfName').focus(), 100);
+  }
+
+  async function saveSaEmployee() {
+    const name = document.getElementById('saEfName').value.trim();
+    const rate = parseFloat(document.getElementById('saEfRate').value);
+    if (!name)        { toast('Name is required.', 'error'); return; }
+    if (!rate || rate <= 0) { toast('Daily rate must be greater than 0.', 'error'); return; }
+
+    const data = {
+      name,
+      position:      document.getElementById('saEfPosition').value.trim(),
+      daily_rate:    rate,
+      sss_no:        document.getElementById('saEfSss').value.trim(),
+      philhealth_no: document.getElementById('saEfPhilhealth').value.trim(),
+      pagibig_no:    document.getElementById('saEfPagibig').value.trim(),
+      status:        document.getElementById('saEfStatus').value,
+    };
+
+    try {
+      if (editSaEmpId) {
+        await sbPatch(`${EMP_URL}?id=eq.${editSaEmpId}`, data);
+        logAudit('EMPLOYEE_UPDATE', `Updated employee profile/salary: ${name}`);
+        toast('Employee updated.', 'success');
+      } else {
+        data.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        await sbPost(EMP_URL, data);
+        logAudit('EMPLOYEE_CREATE', `Created new employee: ${name}`);
+        toast('Employee added.', 'success');
+      }
+      document.getElementById('empSalaryModal').classList.remove('open');
+      await loadSaEmployees();
+    } catch (e) {
+      console.error(e);
+      toast('Save failed. Check your connection.', 'error');
+    }
+  }
+
+  async function deleteSaEmployee(id, name) {
+    if (!confirm(`Delete employee "${name}"? Their payroll history will remain.`)) return;
+    try {
+      const res = await fetch(`${EMP_URL}?id=eq.${id}`, {
+        method: 'DELETE',
+        headers: { ...makeHeaders(), 'Prefer': 'return=minimal' },
+      });
+      if (!res.ok) throw new Error(res.status);
+      logAudit('EMPLOYEE_DELETE', `Deleted employee: ${name}`);
+      toast('Employee deleted.', 'info');
+      await loadSaEmployees();
+    } catch (e) {
+      toast('Delete failed.', 'error');
     }
   }
 
@@ -596,13 +755,53 @@
   // TAB 4: PAYROLL MASTER EXPORT
   // ══════════════════════════════════════════
   async function exportMasterPayroll() {
-    toast('Gathering all payroll records for export...', 'info');
+    toast('Gathering all payroll records…', 'info');
     try {
-      const data = await sbGet(`${SUPABASE_URL}/rest/v1/payroll_records?select=*`);
-      if(data.length === 0) { toast('No payroll data found to export.', 'error'); return; }
-      logAudit('EXPORT_DATA', `Exported ${data.length} master payroll records.`);
-      toast(`Successfully exported ${data.length} records. (Simulated)`, 'success');
-    } catch (e) { toast('Failed to export payroll records.', 'error'); }
+      // Fetch records joined with period month label
+      const [records, periods] = await Promise.all([
+        sbGet(`${SUPABASE_URL}/rest/v1/payroll_records?select=*&order=period_id.asc`),
+        sbGet(`${SUPABASE_URL}/rest/v1/payroll_periods?select=id,month,label`),
+      ]);
+
+      if (!records.length) { toast('No payroll data found to export.', 'error'); return; }
+
+      // Build a period lookup map
+      const periodMap = {};
+      periods.forEach(p => { periodMap[p.id] = p.label || p.month; });
+
+      const rows = records.map(r => ({
+        'Period':          periodMap[r.period_id] || r.period_id,
+        'Employee Name':   r.employee_name || '',
+        'Type':            r.emp_type     || 'regular',
+        'Event':           r.event_name   || '',
+        'Days Present':    r.days_present ?? '',
+        'Working Days':    r.working_days ?? '',
+        'Gross Pay':       r.gross_pay    || 0,
+        'SSS':             r.sss          || 0,
+        'PhilHealth':      r.philhealth   || 0,
+        'Pag-IBIG':        r.pagibig      || 0,
+        'Withholding Tax': r.tax          || 0,
+        'Net Pay':         r.net_pay      || 0,
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [
+        { wch: 16 }, { wch: 24 }, { wch: 10 }, { wch: 18 },
+        { wch: 13 }, { wch: 13 }, { wch: 13 }, { wch: 10 },
+        { wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 13 },
+      ];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Payroll Master');
+
+      const date = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `SIS_MasterPayroll_${date}.xlsx`);
+
+      logAudit('EXPORT_DATA', `Exported ${records.length} master payroll records.`);
+      toast(`Exported ${records.length} records successfully.`, 'success');
+    } catch (e) {
+      console.error(e);
+      toast('Failed to export payroll records.', 'error');
+    }
   }
 
   // ══════════════════════════════════════════
@@ -620,8 +819,8 @@
 
   async function loadSuperAdminEmployeeRecord() {
     try {
-      const name = encodeURIComponent(currentUser.display_name || currentUser.username);
-      const rows = await sbGet(`${EMP_URL}?name=eq.${name}&select=*&limit=1`);
+      const name = encodeURIComponent('%' + (currentUser.display_name || currentUser.username) + '%');
+      const rows = await sbGet(`${EMP_URL}?name=ilike.${name}&select=*&limit=1`);
       saEmpRecord = rows && rows.length ? rows[0] : null;
       if (!saEmpRecord) document.getElementById('punchStatusText').innerHTML = `<span style="color:var(--orange)">No employee record matched to log attendance.</span>`;
     } catch (e) { console.warn("Could not load employee record."); }
