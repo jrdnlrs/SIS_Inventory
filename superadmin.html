@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIS — Super Admin Control Center</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="payrollstyles.css">
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon" style="background: linear-gradient(135deg, #4f46e5, #8b5cf6);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Supreme InfoTech Solutions</h1>
+        <span style="color:var(--accent-bright); font-weight: 600;">Super Admin Control Center</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div id="userChip" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);">
+        <span id="userChipName" style="color:var(--text)"></span>
+        <span id="userChipRole" style="font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:rgba(139,92,246,0.1);color:#a78bfa;border:1px solid rgba(139,92,246,0.2);"></span>
+      </div>
+      <button class="btn btn-ghost" onclick="AUTH.logout()" style="padding:8px 12px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Sign Out
+      </button>
+    </div>
+  </header>
+
+  <nav class="tab-nav">
+    <a href="index.html" class="tab-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h18M3 15h18"/></svg>
+      Inventory
+    </a>
+    <a href="payroll.html" class="tab-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      Payroll
+    </a>
+    <a href="superadmin.html" class="tab-link active" style="color:#a78bfa; border-bottom-color:#8b5cf6;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Super Admin
+    </a>
+  </nav>
+
+  <div class="payroll-tabs" style="margin-bottom: 24px;">
+    <button class="ptab active" onclick="switchSaTab('settings', this)">1. System Settings</button>
+    <button class="ptab" onclick="switchSaTab('users', this)">2. Users & Dashboard</button>
+    <button class="ptab" onclick="switchSaTab('audit', this)">3. Audit Logs</button>
+    <button class="ptab" onclick="switchSaTab('payroll', this)">4. Payroll Master</button>
+    <button class="ptab" onclick="switchSaTab('profile', this)">5. Profile</button>
+  </div>
+
+  <div id="tab-settings" class="ptab-content">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Manage System Settings</div>
+        <div class="section-sub">Update global contributions, insurances, and tax brackets</div>
+      </div>
+    </div>
+    
+    <div class="form-grid" style="background: var(--surface); padding: 20px; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+      <h3 style="grid-column: 1 / -1; font-family: 'Barlow Condensed'; font-size: 16px; margin-bottom: 10px; color: var(--accent-bright);">Contributions & Insurances</h3>
+      <div class="form-group"><label>PhilHealth Rate (%)</label><input type="number" step="0.1" value="5.0"></div>
+      <div class="form-group"><label>Pag-IBIG Fixed Rate (₱)</label><input type="number" value="100"></div>
+      <div class="form-group"><label>SSS Max Cap (₱)</label><input type="number" value="1575"></div>
+      <div class="form-group"><label>SSS EE Rate (%)</label><input type="number" step="0.1" value="4.5"></div>
+      
+      <h3 style="grid-column: 1 / -1; font-family: 'Barlow Condensed'; font-size: 16px; margin-top: 15px; margin-bottom: 10px; color: var(--accent-bright);">Tax Brackets (BIR Base)</h3>
+      <div class="form-group"><label>Bracket 1 Ceiling</label><input type="number" value="20833"></div>
+      <div class="form-group"><label>Bracket 2 Ceiling</label><input type="number" value="33332"></div>
+    </div>
+    <button class="btn btn-primary" style="margin-top: 15px;">Save Global Variables</button>
+  </div>
+
+  <div id="tab-users" class="ptab-content" style="display:none">
+    <div class="section-header">
+      <div>
+        <div class="section-title">User Management Dashboard</div>
+        <div class="section-sub">Create, delete, and manage profiles / manual time log adjustments</div>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-ghost">Manual Time Log Adjust</button>
+        <button class="btn btn-primary">Create User Account</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Display Name</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="saUsersTableBody">
+          <tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Loading system users...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="tab-audit" class="ptab-content" style="display:none">
+    <div class="section-header">
+      <div>
+        <div class="section-title">System Audit Logs</div>
+        <div class="section-sub">View master history of system changes</div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>User</th>
+            <th>Action</th>
+            <th>Target Module</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">2026-04-22 14:00</td>
+            <td>Elijah Lirios</td>
+            <td><span class="badge badge-ok">LOGIN</span></td>
+            <td>Auth System</td>
+            <td style="color:var(--text-muted);">Session started successfully.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="tab-payroll" class="ptab-content" style="display:none">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Payroll Master Controls</div>
+        <div class="section-sub">Run payroll, approve salaries, view history, and export data</div>
+      </div>
+    </div>
+    <div style="display:flex; gap:14px; margin-bottom: 24px;">
+      <button class="btn btn-primary" onclick="window.location.href='payroll.html'">Run Payroll & Approve Salaries</button>
+      <button class="btn btn-ghost" onclick="window.location.href='payroll.html'">View Payroll History</button>
+      <button class="btn btn-ghost">Export Master Payroll Data</button>
+    </div>
+    <div class="table-wrap" style="opacity: 0.7; pointer-events:none;">
+      <div style="padding: 30px; text-align: center; color: var(--text-muted);">
+        Master Payroll Overview will be routed through the primary Payroll Engine.
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-profile" class="ptab-content" style="display:none">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Personal Profile</div>
+        <div class="section-sub">Manage profile, time-in/time-out, and view personal payslips</div>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns: 300px 1fr; gap: 24px;">
+      
+      <div style="background: var(--surface); padding: 20px; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+        <h3 style="font-family: 'Barlow Condensed'; font-size: 16px; margin-bottom: 15px;">Daily Time Record</h3>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <button class="btn btn-primary" style="background:var(--green); box-shadow:none; justify-content:center;">Time-In</button>
+          <button class="btn btn-danger" style="justify-content:center;">Time-Out</button>
+        </div>
+        <div style="margin-top: 20px; text-align:center; font-size: 12px; color:var(--text-muted);">
+          Current Status: <span style="color:var(--orange); font-weight:bold;">Clocked Out</span>
+        </div>
+      </div>
+
+      <div style="background: var(--surface); padding: 20px; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+        <h3 style="font-family: 'Barlow Condensed'; font-size: 16px; margin-bottom: 15px;">Account Actions</h3>
+        <div style="display:flex; gap:10px;">
+          <button class="btn btn-ghost">Manage Profile Data</button>
+          <button class="btn btn-ghost">View My Payslips</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><script src="auth.js"></script>
+<script>
+  // ── INIT & AUTH GUARD ──
+  document.addEventListener('DOMContentLoaded', async function () {
+    // Strictly enforce Super Admin access
+    const session = AUTH.requireSuperAdmin();
+    if (!session) return; 
+
+    // Populate user chip
+    const chipName = document.getElementById('userChipName');
+    const chipRole = document.getElementById('userChipRole');
+    if (chipName) chipName.textContent = session.display_name || session.username;
+    if (chipRole) chipRole.textContent = session.role;
+
+    // Load mock users to fulfill the Dashboard/Total Users requirement visually
+    try {
+      const res  = await fetch('users.json?nocache=' + Date.now());
+      const data = await res.json();
+      const tbody = document.getElementById('saUsersTableBody');
+      tbody.innerHTML = (data.users || []).map(u => `
+        <tr>
+          <td class="mono">${u.username}</td>
+          <td><strong>${u.display_name}</strong></td>
+          <td><span class="badge ${u.role === 'superadmin' ? 'badge-spare' : u.role === 'admin' ? 'badge-active' : 'badge-low'}">${u.role}</span></td>
+          <td><span style="color:${u.active ? 'var(--green)' : 'var(--red)'}">${u.active ? 'Active' : 'Inactive'}</span></td>
+          <td><button class="btn btn-edit" style="padding:4px 8px;">Edit</button></td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      console.warn("Could not load users for SA dashboard.");
+    }
+  });
+
+  // ── TAB SWITCHING LOGIC ──
+  function switchSaTab(name, btn) {
+    document.querySelectorAll('.ptab-content').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.ptab').forEach(el => {
+        el.classList.remove('active');
+        // Reset specialized active coloring
+        el.style.background = '';
+        el.style.color = '';
+        el.style.borderColor = '';
+    });
+    
+    document.getElementById(`tab-${name}`).style.display = 'block';
+    btn.classList.add('active');
+    
+    // Apply purple hue to active tab to distinguish from regular payroll
+    btn.style.background = 'linear-gradient(135deg, #4f46e5, #8b5cf6)';
+    btn.style.color = '#fff';
+    btn.style.borderColor = '#8b5cf6';
+  }
+</script>
+</body>
+</html>

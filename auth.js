@@ -179,7 +179,7 @@ const AUTH = (() => {
     return { ok: true, user };
   }
 
-  // ── GUARD (call on every protected page) ──
+  // ── GUARDS ───────────────────────────────
   function requireAuth() {
     const s = getSession();
     if (!s) {
@@ -198,6 +198,15 @@ const AUTH = (() => {
     return s;
   }
 
+  function requireSuperAdmin() {
+    const s = requireAuth();
+    if (s && s.role !== 'superadmin') {
+      window.location.href = 'index.html'; // Kick standard admins out
+      return null;
+    }
+    return s;
+  }
+
   // ── LOGOUT ─────────────────────────────
   function logout() {
     destroySession();
@@ -205,6 +214,6 @@ const AUTH = (() => {
   }
 
   // ── PUBLIC API ─────────────────────────
-  return { login, logout, requireAuth, getSession, hashPassword };
+  return { login, logout, requireAuth, requireSuperAdmin, getSession, hashPassword };
 
 })();

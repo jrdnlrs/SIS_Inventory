@@ -13,7 +13,7 @@
       "username": "EJL002",
       "display_name": "Elijah Lirios",
       "password_hash": "1084285cbe681fb7c2e2a6409320ded4da8b6d5a2d180179a4c2befaf546f157",
-      "role": "admin",
+      "role": "superadmin",
       "active": true
     },
     {
