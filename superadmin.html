@@ -7,6 +7,77 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="payrollstyles.css">
+<style>
+  /* ── SPINNER ── */
+  .sa-spinner {
+    display: none; width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+    border-radius: 50%; animation: sa-spin 0.8s linear infinite; margin-right: 6px;
+  }
+  @keyframes sa-spin { to { transform: rotate(360deg); } }
+
+  /* ── DIGITAL CLOCK & PUNCH UI ── */
+  .digital-clock {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 64px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+    letter-spacing: 1px;
+  }
+  .current-date {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--accent-bright);
+    margin-top: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .btn-punch {
+    background: linear-gradient(135deg, #059669, #10b981);
+    border: none;
+    border-radius: 99px;
+    padding: 16px 48px;
+    color: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 8px 24px rgba(16,185,129,0.25);
+    transition: all 0.2s cubic-bezier(0.16,1,0.3,1);
+  }
+  .btn-punch:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(16,185,129,0.4);
+  }
+  .btn-punch.punch-out {
+    background: linear-gradient(135deg, #d97706, #f59e0b);
+    box-shadow: 0 8px 24px rgba(245,158,11,0.25);
+  }
+  .btn-punch.punch-out:hover { box-shadow: 0 12px 32px rgba(245,158,11,0.4); }
+  .btn-punch .punch-icon { width: 22px; height: 22px; }
+  .btn-punch .punch-text {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* ── CUSTOM MODAL FIXES ── */
+  .hash-box {
+    background: #080c14;
+    border: 1px solid var(--border-bright);
+    padding: 12px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent-bright);
+    word-break: break-all;
+    margin-top: 10px;
+    user-select: all;
+  }
+</style>
 </head>
 <body>
 <div class="app">
@@ -68,27 +139,30 @@
     
     <div class="form-grid" style="background: var(--surface); padding: 20px; border-radius: var(--radius-lg); border: 1px solid var(--border);">
       <h3 style="grid-column: 1 / -1; font-family: 'Barlow Condensed'; font-size: 16px; margin-bottom: 10px; color: var(--accent-bright);">Contributions & Insurances</h3>
-      <div class="form-group"><label>PhilHealth Rate (%)</label><input type="number" step="0.1" value="5.0"></div>
-      <div class="form-group"><label>Pag-IBIG Fixed Rate (₱)</label><input type="number" value="100"></div>
-      <div class="form-group"><label>SSS Max Cap (₱)</label><input type="number" value="1575"></div>
-      <div class="form-group"><label>SSS EE Rate (%)</label><input type="number" step="0.1" value="4.5"></div>
+      <div class="form-group"><label>PhilHealth Rate (%)</label><input type="number" step="0.1" id="sysPhic" value="5.0"></div>
+      <div class="form-group"><label>Pag-IBIG Fixed Rate (₱)</label><input type="number" id="sysPagibig" value="100"></div>
+      <div class="form-group"><label>SSS Max Cap (₱)</label><input type="number" id="sysSssCap" value="1575"></div>
+      <div class="form-group"><label>SSS EE Rate (%)</label><input type="number" step="0.1" id="sysSssRate" value="4.5"></div>
       
       <h3 style="grid-column: 1 / -1; font-family: 'Barlow Condensed'; font-size: 16px; margin-top: 15px; margin-bottom: 10px; color: var(--accent-bright);">Tax Brackets (BIR Base)</h3>
-      <div class="form-group"><label>Bracket 1 Ceiling</label><input type="number" value="20833"></div>
-      <div class="form-group"><label>Bracket 2 Ceiling</label><input type="number" value="33332"></div>
+      <div class="form-group"><label>Bracket 1 Ceiling (No Tax)</label><input type="number" id="sysBirB1" value="20833"></div>
+      <div class="form-group"><label>Bracket 2 Ceiling</label><input type="number" id="sysBirB2" value="33332"></div>
     </div>
-    <button class="btn btn-primary" style="margin-top: 15px;">Save Global Variables</button>
+    <button class="btn btn-primary" onclick="saveSystemSettings()" style="margin-top: 15px;">
+      <div class="sa-spinner" id="spinSettings"></div>
+      Save Global Variables
+    </button>
   </div>
 
   <div id="tab-users" class="ptab-content" style="display:none">
     <div class="section-header">
       <div>
         <div class="section-title">User Management Dashboard</div>
-        <div class="section-sub">Create, delete, and manage profiles / manual time log adjustments</div>
+        <div class="section-sub">System roster and credential overview</div>
       </div>
       <div style="display:flex; gap:10px;">
-        <button class="btn btn-ghost">Manual Time Log Adjust</button>
-        <button class="btn btn-primary">Create User Account</button>
+        <button class="btn btn-ghost" onclick="openTimeAdjustModal()">Manual Time Log Adjust</button>
+        <button class="btn btn-primary" onclick="openHashModal()">Create User Account</button>
       </div>
     </div>
     <div class="table-wrap">
@@ -107,6 +181,7 @@
         </tbody>
       </table>
     </div>
+    <p style="margin-top:10px; font-size:11px; color:var(--text-muted);">* Note: Because StockDesk uses a static users.json for security, creating new users requires updating the JSON file directly with the generated SHA-256 hash.</p>
   </div>
 
   <div id="tab-audit" class="ptab-content" style="display:none">
@@ -115,26 +190,20 @@
         <div class="section-title">System Audit Logs</div>
         <div class="section-sub">View master history of system changes</div>
       </div>
+      <button class="btn btn-ghost" onclick="loadAuditLogs()">Refresh Logs</button>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap" style="max-height: 400px; overflow-y: auto;">
       <table>
-        <thead>
+        <thead style="position: sticky; top: 0; background: var(--surface2); z-index: 1;">
           <tr>
             <th>Timestamp</th>
             <th>User</th>
             <th>Action</th>
-            <th>Target Module</th>
             <th>Details</th>
           </tr>
         </thead>
-        <tbody>
-          <tr>
-            <td class="mono">2026-04-22 14:00</td>
-            <td>Elijah Lirios</td>
-            <td><span class="badge badge-ok">LOGIN</span></td>
-            <td>Auth System</td>
-            <td style="color:var(--text-muted);">Session started successfully.</td>
-          </tr>
+        <tbody id="saAuditTableBody">
+          <tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Loading audit logs...</td></tr>
         </tbody>
       </table>
     </div>
@@ -148,13 +217,13 @@
       </div>
     </div>
     <div style="display:flex; gap:14px; margin-bottom: 24px;">
-      <button class="btn btn-primary" onclick="window.location.href='payroll.html'">Run Payroll & Approve Salaries</button>
+      <button class="btn btn-primary" onclick="window.location.href='payroll.html'">Run Payroll Engine</button>
       <button class="btn btn-ghost" onclick="window.location.href='payroll.html'">View Payroll History</button>
-      <button class="btn btn-ghost">Export Master Payroll Data</button>
+      <button class="btn btn-ghost" onclick="exportMasterPayroll()">Export Master Payroll Data</button>
     </div>
     <div class="table-wrap" style="opacity: 0.7; pointer-events:none;">
       <div style="padding: 30px; text-align: center; color: var(--text-muted);">
-        Master Payroll Overview will be routed through the primary Payroll Engine.
+        Master Payroll Overview is routed through the primary Payroll Engine module. Click the buttons above to navigate.
       </div>
     </div>
   </div>
@@ -162,49 +231,235 @@
   <div id="tab-profile" class="ptab-content" style="display:none">
     <div class="section-header">
       <div>
-        <div class="section-title">Personal Profile</div>
-        <div class="section-sub">Manage profile, time-in/time-out, and view personal payslips</div>
+        <div class="section-title">Super Admin Profile</div>
+        <div class="section-sub">Manage time-in/time-out records</div>
       </div>
     </div>
-    <div style="display:grid; grid-template-columns: 300px 1fr; gap: 24px;">
-      
-      <div style="background: var(--surface); padding: 20px; border-radius: var(--radius-lg); border: 1px solid var(--border);">
-        <h3 style="font-family: 'Barlow Condensed'; font-size: 16px; margin-bottom: 15px;">Daily Time Record</h3>
-        <div style="display:flex; flex-direction:column; gap:10px;">
-          <button class="btn btn-primary" style="background:var(--green); box-shadow:none; justify-content:center;">Time-In</button>
-          <button class="btn btn-danger" style="justify-content:center;">Time-Out</button>
-        </div>
-        <div style="margin-top: 20px; text-align:center; font-size: 12px; color:var(--text-muted);">
-          Current Status: <span style="color:var(--orange); font-weight:bold;">Clocked Out</span>
-        </div>
+    
+    <div style="text-align:center; padding:48px 0; background: var(--surface); border-radius: var(--radius-lg); border: 1px solid var(--border);">
+      <div class="digital-clock" id="liveClock">00:00:00 AM</div>
+      <div class="current-date" id="liveDate">Loading date...</div>
+
+      <div style="margin-top:36px;">
+        <button class="btn-punch" id="btnPunch" onclick="handlePunch()">
+          <svg class="punch-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          <span class="punch-text" id="punchText">Time In</span>
+        </button>
       </div>
 
-      <div style="background: var(--surface); padding: 20px; border-radius: var(--radius-lg); border: 1px solid var(--border);">
-        <h3 style="font-family: 'Barlow Condensed'; font-size: 16px; margin-bottom: 15px;">Account Actions</h3>
-        <div style="display:flex; gap:10px;">
-          <button class="btn btn-ghost">Manage Profile Data</button>
-          <button class="btn btn-ghost">View My Payslips</button>
-        </div>
+      <div id="punchStatusText" style="margin-top:20px;font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">
+        Initializing logs...
       </div>
-
     </div>
   </div>
 
-</div><script src="auth.js"></script>
+</div><div class="overlay" id="hashModal">
+  <div class="modal">
+    <h2><span class="dot" style="background:#a78bfa;box-shadow:0 0 8px #a78bfa;"></span> Create User Account</h2>
+    <p style="font-size:13px; color:var(--text-muted); margin-bottom:18px;">
+      Generate the JSON snippet needed to add a new user to the secure `users.json` file.
+    </p>
+    <div class="form-grid">
+      <div class="form-group"><label>Username (ID)</label><input type="text" id="hashUsername" placeholder="e.g. EMP009"></div>
+      <div class="form-group"><label>Display Name</label><input type="text" id="hashName" placeholder="e.g. John Doe"></div>
+      <div class="form-group"><label>Role</label>
+        <select id="hashRole">
+          <option value="employee">Employee</option>
+          <option value="admin">Admin</option>
+          <option value="superadmin">Super Admin</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Password</label><input type="password" id="hashPass" placeholder="Raw password"></div>
+    </div>
+    
+    <button class="btn btn-primary" style="margin-top:16px; width:100%; justify-content:center;" onclick="generateUserJson()">Generate Secure JSON</button>
+    
+    <div id="hashOutputContainer" style="display:none;">
+      <div class="hash-box" id="hashResult"></div>
+      <button class="btn btn-ghost" style="margin-top:8px; font-size:11px;" onclick="copyHash()">Copy to Clipboard</button>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('hashModal').classList.remove('open')">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="timeLogModal">
+  <div class="modal" style="max-width: 600px;">
+    <h2><span class="dot" style="background:var(--orange);box-shadow:0 0 8px var(--orange);"></span> Manual Time Log Adjust</h2>
+    <p style="font-size:13px; color:var(--text-muted); margin-bottom:18px;">
+      View and override time-in/out records for any employee on a specific date.
+    </p>
+    <div style="display:flex; gap:10px; margin-bottom: 20px;">
+      <div class="form-group" style="flex:1;"><label>Target Date</label><input type="date" id="targetLogDate"></div>
+      <button class="btn btn-primary" style="align-self: flex-end; margin-bottom: 2px;" onclick="fetchLogsForDate()">Fetch Logs</button>
+    </div>
+
+    <div class="table-wrap" style="max-height: 250px; overflow-y: auto;">
+      <table>
+        <thead style="position:sticky; top:0; background:var(--surface2);">
+          <tr>
+            <th>Employee</th>
+            <th>Time In</th>
+            <th>Time Out</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="manualLogsBody">
+          <tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Select a date to view logs</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('timeLogModal').classList.remove('open')">Close</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="config.js"></script>
+<script src="auth.js"></script>
 <script>
+  // ── CONSTANTS & STATE ──
+  const SYS_URL   = `${SUPABASE_URL}/rest/v1/system_settings`;
+  const AUDIT_URL = `${SUPABASE_URL}/rest/v1/audit_logs`;
+  const EMP_URL   = `${SUPABASE_URL}/rest/v1/employees`;
+  const DTR_URL   = `${SUPABASE_URL}/rest/v1/dtr_logs`;
+  
+  let currentUser = null;
+  let settingsId  = null;
+  let saEmpRecord = null;
+  let todayLog    = null;
+  let isTimedIn   = false;
+  let employeeDict = {}; // Cache for Time Log names
+
   // ── INIT & AUTH GUARD ──
   document.addEventListener('DOMContentLoaded', async function () {
-    // Strictly enforce Super Admin access
-    const session = AUTH.requireSuperAdmin();
-    if (!session) return; 
+    currentUser = AUTH.requireSuperAdmin();
+    if (!currentUser) return; 
 
-    // Populate user chip
     const chipName = document.getElementById('userChipName');
     const chipRole = document.getElementById('userChipRole');
-    if (chipName) chipName.textContent = session.display_name || session.username;
-    if (chipRole) chipRole.textContent = session.role;
+    if (chipName) chipName.textContent = currentUser.display_name || currentUser.username;
+    if (chipRole) chipRole.textContent = currentUser.role;
 
-    // Load mock users to fulfill the Dashboard/Total Users requirement visually
+    // Load initial data
+    loadSystemSettings();
+    loadUsers();
+    
+    // Set default date for manual logs
+    document.getElementById('targetLogDate').value = new Date().toISOString().slice(0, 10);
+    
+    initClock();
+    await loadSuperAdminEmployeeRecord(); 
+    await loadDtrLogs();
+
+    logAudit('LOGIN', 'Super Admin accessed the control center.');
+  });
+
+  // ── SUPABASE API HELPERS ──
+  function makeHeaders() {
+    return {
+      'Content-Type':  'application/json',
+      'apikey':        SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Prefer':        'return=representation'
+    };
+  }
+
+  async function sbGet(url) {
+    const res = await fetch(url, { headers: makeHeaders() });
+    if (!res.ok) throw new Error(`GET failed: ${res.status}`);
+    return res.json();
+  }
+
+  async function sbPost(url, body) {
+    const res = await fetch(url, { method: 'POST', headers: makeHeaders(), body: JSON.stringify(body) });
+    if (!res.ok) throw new Error(`POST failed: ${res.status}`);
+    return res.json();
+  }
+
+  async function sbPatch(url, body) {
+    const res = await fetch(url, { method: 'PATCH', headers: makeHeaders(), body: JSON.stringify(body) });
+    if (!res.ok) throw new Error(`PATCH failed: ${res.status}`);
+    return res.json();
+  }
+
+  function toast(msg, type = 'info') {
+    const icons = { success: '✓', error: '✗', info: 'ℹ' };
+    const el   = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `<span>${icons[type]}</span> ${msg}`;
+    document.getElementById('toastContainer').appendChild(el);
+    setTimeout(() => {
+      el.style.animation = 'toastOut 0.3s ease-in forwards';
+      setTimeout(() => el.remove(), 300);
+    }, 2800);
+  }
+
+  function switchSaTab(name, btn) {
+    document.querySelectorAll('.ptab-content').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.ptab').forEach(el => {
+        el.classList.remove('active');
+        el.style.background = ''; el.style.color = ''; el.style.borderColor = '';
+    });
+    document.getElementById(`tab-${name}`).style.display = 'block';
+    btn.classList.add('active');
+    btn.style.background = 'linear-gradient(135deg, #4f46e5, #8b5cf6)';
+    btn.style.color = '#fff'; btn.style.borderColor = '#8b5cf6';
+    if (name === 'audit') loadAuditLogs();
+  }
+
+  // ══════════════════════════════════════════
+  // TAB 1: SYSTEM SETTINGS
+  // ══════════════════════════════════════════
+  async function loadSystemSettings() {
+    try {
+      const data = await sbGet(`${SYS_URL}?select=*`);
+      if (data && data.length > 0) {
+        const s = data[0];
+        settingsId = s.id;
+        document.getElementById('sysPhic').value = s.phic_rate;
+        document.getElementById('sysPagibig').value = s.pagibig_fixed;
+        document.getElementById('sysSssCap').value = s.sss_cap;
+        document.getElementById('sysSssRate').value = s.sss_rate;
+        document.getElementById('sysBirB1').value = s.bir_b1;
+        document.getElementById('sysBirB2').value = s.bir_b2;
+      }
+    } catch (e) {
+      console.warn("System settings table not found or empty.");
+    }
+  }
+
+  async function saveSystemSettings() {
+    const payload = {
+      phic_rate: parseFloat(document.getElementById('sysPhic').value),
+      pagibig_fixed: parseFloat(document.getElementById('sysPagibig').value),
+      sss_cap: parseFloat(document.getElementById('sysSssCap').value),
+      sss_rate: parseFloat(document.getElementById('sysSssRate').value),
+      bir_b1: parseFloat(document.getElementById('sysBirB1').value),
+      bir_b2: parseFloat(document.getElementById('sysBirB2').value)
+    };
+    const spin = document.getElementById('spinSettings');
+    spin.style.display = 'inline-block';
+    try {
+      if (settingsId) { await sbPatch(`${SYS_URL}?id=eq.${settingsId}`, payload); } 
+      else { await sbPost(SYS_URL, payload); }
+      logAudit('SETTINGS_UPDATE', 'Updated global payroll tax and contribution variables.');
+      toast('System settings saved successfully.', 'success');
+    } catch (e) {
+      toast('Failed to save settings.', 'error');
+    } finally { spin.style.display = 'none'; }
+  }
+
+  // ══════════════════════════════════════════
+  // TAB 2: USER MANAGEMENT & HASH GENERATOR
+  // ══════════════════════════════════════════
+  async function loadUsers() {
     try {
       const res  = await fetch('users.json?nocache=' + Date.now());
       const data = await res.json();
@@ -215,32 +470,209 @@
           <td><strong>${u.display_name}</strong></td>
           <td><span class="badge ${u.role === 'superadmin' ? 'badge-spare' : u.role === 'admin' ? 'badge-active' : 'badge-low'}">${u.role}</span></td>
           <td><span style="color:${u.active ? 'var(--green)' : 'var(--red)'}">${u.active ? 'Active' : 'Inactive'}</span></td>
-          <td><button class="btn btn-edit" style="padding:4px 8px;">Edit</button></td>
+          <td><button class="btn btn-edit" style="padding:4px 8px;" onclick="toast('Cannot edit static file. Use Generator.', 'error')">Edit</button></td>
         </tr>
       `).join('');
     } catch (e) {
-      console.warn("Could not load users for SA dashboard.");
+      document.getElementById('saUsersTableBody').innerHTML = `<tr><td colspan="5" style="color:var(--red);">Failed to load users.json</td></tr>`;
     }
-  });
+  }
 
-  // ── TAB SWITCHING LOGIC ──
-  function switchSaTab(name, btn) {
-    document.querySelectorAll('.ptab-content').forEach(el => el.style.display = 'none');
-    document.querySelectorAll('.ptab').forEach(el => {
-        el.classList.remove('active');
-        // Reset specialized active coloring
-        el.style.background = '';
-        el.style.color = '';
-        el.style.borderColor = '';
-    });
+  function openHashModal() {
+    document.getElementById('hashModal').classList.add('open');
+    document.getElementById('hashOutputContainer').style.display = 'none';
+  }
+
+  async function generateUserJson() {
+    const user = document.getElementById('hashUsername').value.trim();
+    const name = document.getElementById('hashName').value.trim();
+    const role = document.getElementById('hashRole').value;
+    const pass = document.getElementById('hashPass').value;
+
+    if(!user || !name || !pass) { toast('All fields required', 'error'); return; }
+
+    const hash = await AUTH.hashPassword(pass);
+    const jsonString = `    {\n      "username": "${user}",\n      "display_name": "${name}",\n      "password_hash": "${hash}",\n      "role": "${role}",\n      "active": true\n    },`;
     
-    document.getElementById(`tab-${name}`).style.display = 'block';
-    btn.classList.add('active');
-    
-    // Apply purple hue to active tab to distinguish from regular payroll
-    btn.style.background = 'linear-gradient(135deg, #4f46e5, #8b5cf6)';
-    btn.style.color = '#fff';
-    btn.style.borderColor = '#8b5cf6';
+    document.getElementById('hashResult').textContent = jsonString;
+    document.getElementById('hashOutputContainer').style.display = 'block';
+    logAudit('GENERATE_HASH', `Generated secure credentials code for new user: ${user}`);
+  }
+
+  function copyHash() {
+    const text = document.getElementById('hashResult').textContent;
+    navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard!', 'success'));
+  }
+
+  // ══════════════════════════════════════════
+  // TAB 2: MANUAL TIME LOG ADJUSTMENT
+  // ══════════════════════════════════════════
+  function openTimeAdjustModal() {
+    document.getElementById('timeLogModal').classList.add('open');
+  }
+
+  async function fetchLogsForDate() {
+    const targetDate = document.getElementById('targetLogDate').value;
+    const tbody = document.getElementById('manualLogsBody');
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">Loading logs...</td></tr>`;
+
+    try {
+      // Fetch employees if not cached
+      if (Object.keys(employeeDict).length === 0) {
+        const emps = await sbGet(`${EMP_URL}?select=id,name`);
+        emps.forEach(e => employeeDict[e.id] = e.name);
+      }
+
+      const logs = await sbGet(`${DTR_URL}?date=eq.${targetDate}&select=*`);
+      
+      if (logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">No time records found for this date.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = logs.map(log => `
+        <tr>
+          <td><strong>${employeeDict[log.employee_id] || 'Unknown Employee'}</strong></td>
+          <td><input type="time" id="in_${log.id}" value="${log.time_in ? log.time_in.slice(0,5) : ''}" style="background:var(--bg); border:1px solid var(--border); color:var(--text); padding:4px;"></td>
+          <td><input type="time" id="out_${log.id}" value="${log.time_out ? log.time_out.slice(0,5) : ''}" style="background:var(--bg); border:1px solid var(--border); color:var(--text); padding:4px;"></td>
+          <td><button class="btn btn-primary" style="padding:4px 8px; font-size:11px;" onclick="updateTimeLog('${log.id}', '${employeeDict[log.employee_id]}')">Save</button></td>
+        </tr>
+      `).join('');
+
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="4" style="color:var(--red);">Failed to fetch logs.</td></tr>`;
+    }
+  }
+
+  async function updateTimeLog(logId, empName) {
+    const newIn = document.getElementById(`in_${logId}`).value;
+    const newOut = document.getElementById(`out_${logId}`).value;
+
+    try {
+      const payload = { 
+        time_in: newIn ? newIn + ':00' : null, 
+        time_out: newOut ? newOut + ':00' : null 
+      };
+      await sbPatch(`${DTR_URL}?id=eq.${logId}`, payload);
+      toast('Time log updated successfully', 'success');
+      logAudit('MANUAL_TIME_ADJUST', `Super Admin manually adjusted time log for ${empName}.`);
+    } catch (e) {
+      toast('Failed to update time log.', 'error');
+    }
+  }
+
+  // ══════════════════════════════════════════
+  // TAB 3: AUDIT LOGS
+  // ══════════════════════════════════════════
+  async function logAudit(action, details) {
+    if (!currentUser) return;
+    try {
+      await sbPost(AUDIT_URL, { username: currentUser.username, display_name: currentUser.display_name, action: action, details: details });
+    } catch (e) { console.warn("Audit logging failed."); }
+  }
+
+  async function loadAuditLogs() {
+    const tbody = document.getElementById('saAuditTableBody');
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Loading logs...</td></tr>`;
+    try {
+      const data = await sbGet(`${AUDIT_URL}?select=*&order=created_at.desc&limit=50`);
+      if (data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">No audit logs found.</td></tr>`; return;
+      }
+      tbody.innerHTML = data.map(log => {
+        const time = new Date(log.created_at).toLocaleString('en-PH', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+        return `
+        <tr>
+          <td class="mono" style="font-size:11px; color:var(--text-muted);">${time}</td>
+          <td>${log.display_name} <span style="font-size:10px;color:var(--text-dim);">(${log.username})</span></td>
+          <td><span class="badge badge-ok">${log.action}</span></td>
+          <td style="color:var(--text-muted); font-size:12px;">${log.details}</td>
+        </tr>`;
+      }).join('');
+    } catch (e) { tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--red);">Failed to load audit logs.</td></tr>`; }
+  }
+
+  // ══════════════════════════════════════════
+  // TAB 4: PAYROLL MASTER EXPORT
+  // ══════════════════════════════════════════
+  async function exportMasterPayroll() {
+    toast('Gathering all payroll records for export...', 'info');
+    try {
+      const data = await sbGet(`${SUPABASE_URL}/rest/v1/payroll_records?select=*`);
+      if(data.length === 0) { toast('No payroll data found to export.', 'error'); return; }
+      logAudit('EXPORT_DATA', `Exported ${data.length} master payroll records.`);
+      toast(`Successfully exported ${data.length} records. (Simulated)`, 'success');
+    } catch (e) { toast('Failed to export payroll records.', 'error'); }
+  }
+
+  // ══════════════════════════════════════════
+  // TAB 5: PROFILE ATTENDANCE (DTR)
+  // ══════════════════════════════════════════
+  function initClock() {
+    const clockEl = document.getElementById('liveClock');
+    const dateEl  = document.getElementById('liveDate');
+    setInterval(() => {
+      const now = new Date();
+      clockEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      dateEl.textContent  = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    }, 1000);
+  }
+
+  async function loadSuperAdminEmployeeRecord() {
+    try {
+      const name = encodeURIComponent(currentUser.display_name || currentUser.username);
+      const rows = await sbGet(`${EMP_URL}?name=eq.${name}&select=*&limit=1`);
+      saEmpRecord = rows && rows.length ? rows[0] : null;
+      if (!saEmpRecord) document.getElementById('punchStatusText').innerHTML = `<span style="color:var(--orange)">No employee record matched to log attendance.</span>`;
+    } catch (e) { console.warn("Could not load employee record."); }
+  }
+
+  async function loadDtrLogs() {
+    if (!saEmpRecord) return;
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const rows = await sbGet(`${DTR_URL}?employee_id=eq.${saEmpRecord.id}&date=eq.${today}&select=*`);
+      todayLog = rows.length ? rows[0] : null;
+
+      if (todayLog) {
+        isTimedIn = !todayLog.time_out; 
+        updatePunchButton();
+        const tIn = new Date('1970-01-01T' + todayLog.time_in).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        document.getElementById('punchStatusText').textContent = isTimedIn ? `Currently clocked in (since ${tIn}).` : `Shift completed.`;
+      }
+    } catch (e) { console.error('[dtr] load failed:', e); }
+  }
+
+  function updatePunchButton() {
+    const btn  = document.getElementById('btnPunch');
+    const text = document.getElementById('punchText');
+    if (isTimedIn) { btn.classList.add('punch-out'); text.textContent = 'Time Out'; } 
+    else { btn.classList.remove('punch-out'); text.textContent = 'Time In'; }
+  }
+
+  async function handlePunch() {
+    if (!saEmpRecord) { toast('Add your name in the Payroll tab first.', 'error'); return; }
+    const now = new Date();
+    const nowTime = now.toTimeString().slice(0, 8); 
+    const today = now.toISOString().slice(0, 10);
+    const display = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const status = document.getElementById('punchStatusText');
+
+    try {
+      if (!isTimedIn) {
+        if (todayLog) { toast('You already have a record for today.', 'error'); return; }
+        const [saved] = await sbPost(DTR_URL, { employee_id: saEmpRecord.id, date: today, time_in: nowTime, time_out: null, is_late: false });
+        todayLog = saved; isTimedIn = true; updatePunchButton();
+        status.innerHTML = `Timed in at <strong style="color:var(--text)">${display}</strong>.`;
+        toast('Time in recorded.', 'success'); logAudit('TIME_IN', 'Super Admin logged time in.');
+      } else {
+        if (!todayLog) return;
+        await sbPatch(`${DTR_URL}?id=eq.${todayLog.id}`, { time_out: nowTime });
+        todayLog.time_out = nowTime; isTimedIn = false; updatePunchButton();
+        status.innerHTML = `Timed out at <strong style="color:var(--text)">${display}</strong>.`;
+        toast('Time out recorded.', 'info'); logAudit('TIME_OUT', 'Super Admin logged time out.');
+      }
+    } catch (e) { toast(`Punch failed.`, 'error'); }
   }
 </script>
 </body>
