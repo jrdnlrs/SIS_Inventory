@@ -267,6 +267,85 @@ function emptyState(msg) {
 }
 
 // ═══════════════════════════════════════════
+//  ADMIN ATTENDANCE CARD
+// ═══════════════════════════════════════════
+
+async function loadAdminAttendance(displayName) {
+  const DTR_URL = `${SUPABASE_URL}/rest/v1/dtr_logs`;
+  const EMP_URL = `${SUPABASE_URL}/rest/v1/employees`;
+
+  try {
+    // Find matching employee record
+    const employees = await dbGet(
+      `${EMP_URL}?select=id,name&name=ilike.${encodeURIComponent('%' + displayName + '%')}`
+    );
+    const emp = employees[0] || null;
+    if (!emp) return; // No employee record — hide card gracefully
+
+    // Fetch recent DTR logs
+    const dtrRows = await dbGet(
+      `${DTR_URL}?employee_id=eq.${emp.id}&order=date.desc&limit=30&select=*`
+    );
+
+    // Expose to modal (shared with employee modal)
+    window._dtrAllRows = dtrRows;
+
+    // Drive the punch CTA
+    const today    = new Date().toISOString().slice(0, 10);
+    const todayLog = dtrRows.find(r => r.date === today) || null;
+    const isTimedIn = todayLog && !todayLog.time_out;
+
+    const ctaEl    = document.getElementById('adminPunchCta');
+    const ctaInner = document.getElementById('adminPunchCtaInner');
+    const ctaLabel = document.getElementById('adminPunchCtaLabel');
+    const ctaSub   = document.getElementById('adminPunchCtaSub');
+    const ctaBtn   = document.getElementById('adminPunchCtaBtn');
+
+    if (!ctaEl) return;
+    ctaEl.style.display = 'block';
+    ctaBtn.href = 'profile.html?tab=dtr';
+
+    if (!todayLog) {
+      ctaInner.className    = '';
+      ctaLabel.textContent  = 'Not yet timed in';
+      ctaLabel.style.color  = 'var(--green)';
+      ctaSub.textContent    = 'Go to Attendance to clock in today';
+      ctaBtn.innerHTML      = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg> Time In`;
+      ctaBtn.style.background = 'linear-gradient(135deg,#065f46,#34d399)';
+      ctaBtn.style.boxShadow  = '0 2px 10px rgba(52,211,153,0.25)';
+    } else if (isTimedIn) {
+      const tIn = _fmtTimeSimple(todayLog.time_in);
+      ctaInner.style.background = 'rgba(251,146,60,0.06)';
+      ctaLabel.textContent  = `Clocked in at ${tIn}`;
+      ctaLabel.style.color  = 'var(--orange)';
+      ctaSub.textContent    = 'Go to Attendance to clock out';
+      ctaBtn.innerHTML      = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg> Time Out`;
+      ctaBtn.style.background = 'linear-gradient(135deg,#d97706,#f59e0b)';
+      ctaBtn.style.boxShadow  = '0 2px 10px rgba(245,158,11,0.25)';
+    } else {
+      const tIn  = _fmtTimeSimple(todayLog.time_in);
+      const tOut = _fmtTimeSimple(todayLog.time_out);
+      ctaInner.style.background = 'rgba(59,130,246,0.06)';
+      ctaLabel.textContent  = `Shift complete · ${tIn} – ${tOut}`;
+      ctaLabel.style.color  = 'var(--accent-bright)';
+      ctaSub.textContent    = 'View your full log in Attendance';
+      ctaBtn.innerHTML      = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M16 2v4M8 2v4M2 10h20"/></svg> View Log`;
+      ctaBtn.style.background = 'linear-gradient(135deg,var(--accent-dim),var(--accent))';
+      ctaBtn.style.boxShadow  = '0 2px 10px rgba(59,130,246,0.25)';
+    }
+
+  } catch (err) {
+    console.warn('[admin attendance]', err);
+  }
+}
+
+function _fmtTimeSimple(t) {
+  if (!t) return '—';
+  const d = new Date('1970-01-01T' + (t.length <= 8 ? t : t.slice(11, 19)));
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
+
+// ═══════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', async function () {
@@ -302,6 +381,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('adminGreeting').textContent = `${greeting()}, ${name.split(' ')[0]} 👋`;
     document.getElementById('hubDate').textContent = formatDate();
     await loadAdminStats();
+    await loadAdminAttendance(name);
 
   } else {
     // ── Employee view ──
