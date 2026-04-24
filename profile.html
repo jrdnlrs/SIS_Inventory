@@ -825,6 +825,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   setLoading(false);
   populateAll();
   initClock();
+
+  // ── Auto-switch tab from query param ──────────────────────────────────────
+  const urlParams = new URLSearchParams(window.location.search);
+  const tabParam  = urlParams.get('tab');
+  if (tabParam === 'dtr') {
+    // Switch to Attendance tab programmatically
+    const dtrTabBtn = document.querySelector('.ptab-link[onclick*="dtr"]');
+    if (dtrTabBtn) {
+      switchTab('dtr', dtrTabBtn);
+    }
+  }
 });
 
 async function loadEmployeeRecord() {

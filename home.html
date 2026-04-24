@@ -8,6 +8,40 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="payrollstyles.css">
 <link rel="stylesheet" href="home.css">
+<style>
+  /* Clickable emp-card */
+  .emp-card-clickable {
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+  }
+  .emp-card-clickable:hover {
+    border-color: var(--accent);
+    box-shadow: 0 4px 20px rgba(59,130,246,0.1);
+    transform: translateY(-1px);
+  }
+  .emp-card-clickable:hover svg[stroke="var(--text-dim)"] {
+    color: var(--accent-bright);
+  }
+  /* Punch CTA colour variants */
+  #empPunchCtaInner.punched-in {
+    background: rgba(251,146,60,0.06);
+  }
+  #empPunchCtaInner.punched-in #empPunchCtaLabel {
+    color: var(--orange);
+  }
+  /* DTR footer link hover */
+  a#empDtrFooter:hover {
+    background: rgba(59,130,246,0.04);
+  }
+  /* Loading text */
+  .emp-list-loading {
+    padding: 28px 18px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+</style>
 </head>
 <body>
 <div class="app">
@@ -222,7 +256,7 @@
     <div class="emp-cards">
 
       <!-- Payslip History -->
-      <div class="emp-card">
+      <div class="emp-card emp-card-clickable" onclick="window.location.href='profile.html'">
         <div class="emp-card-header">
           <div style="display:flex;align-items:center;gap:10px">
             <div class="module-icon" style="width:36px;height:36px;background:rgba(52,211,153,0.1);border-color:rgba(52,211,153,0.2)">
@@ -233,6 +267,7 @@
               <div class="emp-card-sub">Your payroll history</div>
             </div>
           </div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-left:auto;transition:color 0.15s"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </div>
         <div id="empPayslipList" class="emp-list">
           <div class="emp-list-loading">Loading payslip history…</div>
@@ -240,7 +275,7 @@
       </div>
 
       <!-- DTR / Attendance -->
-      <div class="emp-card">
+      <div class="emp-card emp-card-clickable" onclick="openDtrModal()">
         <div class="emp-card-header">
           <div style="display:flex;align-items:center;gap:10px">
             <div class="module-icon" style="width:36px;height:36px;background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.2)">
@@ -251,10 +286,40 @@
               <div class="emp-card-sub">Your DTR history</div>
             </div>
           </div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-left:auto;transition:color 0.15s"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </div>
-        <div id="empDtrList" class="emp-list">
-          <div class="emp-list-loading">Loading attendance records…</div>
+
+        <!-- Punch CTA Banner -->
+        <div id="empPunchCta" style="display:none;margin:0;border-bottom:1px solid var(--border);">
+          <div id="empPunchCtaInner" style="
+            display:flex;align-items:center;justify-content:space-between;
+            padding:12px 18px;gap:12px;
+            background:rgba(52,211,153,0.06);
+          ">
+            <div>
+              <div id="empPunchCtaLabel" style="font-size:12px;font-weight:600;color:var(--green);font-family:'JetBrains Mono',monospace;letter-spacing:0.5px;text-transform:uppercase;">Not yet timed in</div>
+              <div id="empPunchCtaSub" style="font-size:11px;color:var(--text-muted);margin-top:2px;">Go to Attendance to clock in today</div>
+            </div>
+            <a href="profile.html?tab=dtr" onclick="event.stopPropagation()" style="
+              display:inline-flex;align-items:center;gap:6px;
+              padding:8px 16px;
+              background:linear-gradient(135deg,#065f46,#34d399);
+              color:#fff;font-family:'Barlow Condensed',sans-serif;
+              font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;
+              border-radius:var(--radius);text-decoration:none;
+              box-shadow:0 2px 10px rgba(52,211,153,0.25);
+              transition:all 0.15s;white-space:nowrap;
+              flex-shrink:0;
+            " id="empPunchCtaBtn">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+              Time In
+            </a>
+          </div>
         </div>
+
+        <!-- Card body is intentionally empty — full log opens in modal on click -->
+
+      </div>
       </div>
 
     </div>
@@ -278,5 +343,202 @@
 <script src="config.js"></script>
 <script src="auth.js"></script>
 <script src="home.js"></script>
+<!-- ══════════════════════════════════════════ -->
+<!-- FULL ATTENDANCE LOG MODAL               -->
+<!-- ══════════════════════════════════════════ -->
+<div id="dtrModalOverlay" onclick="if(event.target===this)closeDtrModal()" style="
+  position:fixed;inset:0;
+  background:rgba(4,8,18,0.85);
+  backdrop-filter:blur(8px);
+  z-index:200;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+">
+  <div id="dtrModalPanel" style="
+    width:100%;max-width:720px;
+    background:var(--surface);
+    border:1px solid var(--border-bright);
+    border-radius:16px;
+    box-shadow:0 24px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(59,130,246,0.08);
+    max-height:82vh;
+    display:flex;flex-direction:column;
+    transform:scale(0.95) translateY(12px);
+    opacity:0;
+    transition:transform 0.3s cubic-bezier(0.16,1,0.3,1), opacity 0.25s ease;
+  ">
+    <!-- Modal header -->
+    <div style="
+      display:flex;align-items:center;justify-content:space-between;
+      padding:16px 24px 14px;
+      border-bottom:1px solid var(--border);
+      flex-shrink:0;
+    ">
+      <div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;gap:10px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);display:inline-block;flex-shrink:0;"></span>
+          Attendance Log
+        </div>
+        <div id="dtrModalSub" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);margin-top:3px;"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <a href="profile.html?tab=dtr" style="
+          display:inline-flex;align-items:center;gap:6px;
+          padding:7px 14px;border-radius:var(--radius);
+          background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);
+          color:var(--accent-bright);font-family:'JetBrains Mono',monospace;font-size:10px;
+          font-weight:600;text-decoration:none;text-transform:uppercase;letter-spacing:0.5px;
+          transition:all 0.15s;
+        ">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Open Full Page
+        </a>
+        <button onclick="closeDtrModal()" style="
+          background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);
+          color:var(--text-muted);padding:7px 10px;cursor:pointer;font-size:14px;
+          display:flex;align-items:center;transition:all 0.15s;
+        ">✕</button>
+      </div>
+    </div>
+
+    <!-- Summary strip -->
+    <div id="dtrModalSummary" style="
+      display:flex;gap:0;flex-shrink:0;
+      border-bottom:1px solid var(--border);
+      overflow-x:auto;
+    "></div>
+
+    <!-- Table -->
+    <div style="overflow-y:auto;flex:1;padding:0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:var(--surface2);position:sticky;top:0;z-index:1;">
+            <th style="padding:10px 24px;text-align:left;font-size:10px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:500;border-bottom:1px solid var(--border);">Date</th>
+            <th style="padding:10px 16px;text-align:left;font-size:10px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:500;border-bottom:1px solid var(--border);">Time In</th>
+            <th style="padding:10px 16px;text-align:left;font-size:10px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:500;border-bottom:1px solid var(--border);">Time Out</th>
+            <th style="padding:10px 16px;text-align:left;font-size:10px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:500;border-bottom:1px solid var(--border);">Duration</th>
+            <th style="padding:10px 24px 10px 16px;text-align:left;font-size:10px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:500;border-bottom:1px solid var(--border);">Status</th>
+          </tr>
+        </thead>
+        <tbody id="dtrModalBody">
+          <tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:12px;">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── DTR Modal helpers (home page scope) ──────────────────────────────────────
+let _dtrAllRows = []; // set by home.js loadEmpDtr
+
+function openDtrModal() {
+  const overlay = document.getElementById('dtrModalOverlay');
+  overlay.style.display = 'flex';
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const panel = document.getElementById('dtrModalPanel');
+      panel.style.transform = 'scale(1) translateY(0)';
+      panel.style.opacity   = '1';
+    });
+  });
+  renderDtrModal();
+}
+
+function closeDtrModal() {
+  const panel = document.getElementById('dtrModalPanel');
+  panel.style.transform = 'scale(0.95) translateY(12px)';
+  panel.style.opacity   = '0';
+  setTimeout(() => {
+    document.getElementById('dtrModalOverlay').style.display = 'none';
+  }, 280);
+}
+
+function renderDtrModal() {
+  const rows   = window._dtrAllRows || [];
+  const tbody  = document.getElementById('dtrModalBody');
+  const sub    = document.getElementById('dtrModalSub');
+  const summary = document.getElementById('dtrModalSummary');
+  const today  = new Date().toISOString().slice(0, 10);
+
+  sub.textContent = `${rows.length} record${rows.length !== 1 ? 's' : ''} found`;
+
+  // Summary stats
+  const present  = rows.filter(r => r.time_out).length;
+  const active   = rows.filter(r => r.time_in && !r.time_out).length;
+  const late     = rows.filter(r => r.is_late).length;
+  const totalMs  = rows.reduce((acc, r) => {
+    if (!r.time_in || !r.time_out) return acc;
+    return acc + (new Date('1970-01-01T' + r.time_out) - new Date('1970-01-01T' + r.time_in));
+  }, 0);
+  const totalH   = Math.floor(totalMs / 3600000);
+  const totalM   = Math.floor((totalMs % 3600000) / 60000);
+
+  summary.innerHTML = [
+    ['Days Present', present],
+    ['Active Today', active ? '●' : '—'],
+    ['Late',         late],
+    ['Total Hours',  totalH + 'h ' + totalM + 'm'],
+  ].map(([label, val]) => `
+    <div style="flex:1;min-width:100px;padding:12px 20px;border-right:1px solid var(--border);last-child:border:none;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);margin-bottom:4px;">${label}</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:var(--accent-bright);">${val}</div>
+    </div>
+  `).join('');
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:48px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:12px;">No attendance records yet.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => {
+    const isToday   = r.date === today;
+    const timeIn    = r.time_in  ? _fmtT(r.time_in)  : '—';
+    const timeOut   = r.time_out ? _fmtT(r.time_out) : '—';
+    const dur       = (r.time_in && r.time_out) ? _calcH(r.time_in, r.time_out) : (r.time_in ? 'Active' : '—');
+    const statusCol = !r.time_out
+      ? 'rgba(251,146,60,0.1)'
+      : r.is_late ? 'rgba(251,146,60,0.1)' : 'rgba(52,211,153,0.1)';
+    const statusTxt = !r.time_out ? 'In Progress' : r.is_late ? 'Late' : 'Present';
+    const statusClr = !r.time_out ? 'var(--orange)' : r.is_late ? 'var(--orange)' : 'var(--green)';
+
+    return `<tr style="border-bottom:1px solid rgba(30,45,69,0.8);transition:background 0.1s;" onmouseover="this.style.background='rgba(59,130,246,0.04)'" onmouseout="this.style.background=''">
+      <td style="padding:13px 24px;font-size:13px;font-weight:600;">
+        ${_fmtDate(r.date)}
+        ${isToday ? `<span style="font-size:9px;font-family:'JetBrains Mono',monospace;background:rgba(59,130,246,0.12);color:var(--accent-bright);padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:middle">TODAY</span>` : ''}
+      </td>
+      <td style="padding:13px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:${r.is_late ? 'var(--orange)' : 'var(--text)'};">${timeIn}</td>
+      <td style="padding:13px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);">${timeOut}</td>
+      <td style="padding:13px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);">${dur}</td>
+      <td style="padding:13px 24px 13px 16px;">
+        <span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600;font-family:'Barlow',sans-serif;text-transform:uppercase;letter-spacing:0.5px;background:${statusCol};color:${statusClr};border:1px solid ${statusClr.replace(')', ',0.25)').replace('var(','rgba(').replace('--orange','251,146,60').replace('--green','52,211,153')};">
+          ${statusTxt}
+        </span>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// Tiny helpers used only in modal scope
+function _fmtT(t) {
+  const d = new Date('1970-01-01T' + (t.length <= 8 ? t : t.slice(11,19)));
+  return d.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+}
+function _fmtDate(dateStr) {
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-PH', { month:'short', day:'numeric', year:'numeric' });
+}
+function _calcH(ti, to) {
+  const ms = new Date('1970-01-01T'+to) - new Date('1970-01-01T'+ti);
+  if (ms <= 0) return '0m';
+  const h = Math.floor(ms/3600000), m = Math.floor((ms%3600000)/60000);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+// Close on Escape
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDtrModal(); });
+</script>
+
 </body>
 </html>

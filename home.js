@@ -190,51 +190,76 @@ async function loadEmpPayslips(empId, empName) {
 }
 
 async function loadEmpDtr(empId, empName) {
-  const records = await dbGet(
-    `${SUPABASE_URL}/rest/v1/payroll_records?employee_id=eq.${empId}&select=days_present,working_days,emp_type,event_name,gross_pay,payroll_periods(month,label)&order=period_id.desc&limit=12`
-  );
+  // ── Fetch recent DTR logs directly from dtr_logs table ──────────────────
+  const DTR_URL = `${SUPABASE_URL}/rest/v1/dtr_logs`;
+  let dtrRows = [];
 
-  const el = document.getElementById('empDtrList');
-
-  if (!records.length) {
-    el.innerHTML = emptyState('No attendance records yet.');
-    return;
+  try {
+    dtrRows = await dbGet(
+      `${DTR_URL}?employee_id=eq.${empId}&order=date.desc&limit=30&select=*`
+    );
+  } catch (_) {
+    // Table may not exist yet — fall through to empty state
   }
 
-  el.innerHTML = records.map(r => {
-    const period   = r.payroll_periods || {};
-    const label    = period.label || period.month || '—';
-    const isEvent  = r.emp_type === 'event';
+  // ── Punch CTA ────────────────────────────────────────────────────────────
+  const today     = new Date().toISOString().slice(0, 10);
+  const todayLog  = dtrRows.find(r => r.date === today) || null;
+  const isTimedIn = todayLog && !todayLog.time_out;
+  const ctaEl     = document.getElementById('empPunchCta');
+  const ctaInner  = document.getElementById('empPunchCtaInner');
+  const ctaLabel  = document.getElementById('empPunchCtaLabel');
+  const ctaSub    = document.getElementById('empPunchCtaSub');
+  const ctaBtn    = document.getElementById('empPunchCtaBtn');
 
-    const attendance = isEvent
-      ? `<span style="color:var(--accent-bright)">${r.event_name || 'Event'}</span>`
-      : `<span style="color:var(--text)">${r.days_present}</span><span style="color:var(--text-muted)"> / ${r.working_days} days</span>`;
+  if (ctaEl) {
+    ctaEl.style.display = 'block';
+    // Always route the button to the Attendance tab directly
+    if (ctaBtn) ctaBtn.href = 'profile.html?tab=dtr';
 
-    const pct = !isEvent && r.working_days > 0
-      ? Math.round((r.days_present / r.working_days) * 100)
-      : null;
+    if (!todayLog) {
+      // Not timed in yet
+      ctaInner.className = '';
+      ctaLabel.textContent = 'Not yet timed in';
+      ctaLabel.style.color = 'var(--green)';
+      ctaSub.textContent   = 'Go to Attendance to clock in today';
+      ctaBtn.innerHTML     = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg> Time In`;
+      ctaBtn.style.background = 'linear-gradient(135deg,#065f46,#34d399)';
+      ctaBtn.style.boxShadow  = '0 2px 10px rgba(52,211,153,0.25)';
+    } else if (isTimedIn) {
+      // Timed in, not out
+      const tIn = formatTime(todayLog.time_in);
+      ctaInner.className    = 'punched-in';
+      ctaLabel.textContent  = `Clocked in at ${tIn}`;
+      ctaLabel.style.color  = 'var(--orange)';
+      ctaSub.textContent    = 'Go to Attendance to clock out';
+      ctaBtn.innerHTML      = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg> Time Out`;
+      ctaBtn.style.background = 'linear-gradient(135deg,#d97706,#f59e0b)';
+      ctaBtn.style.boxShadow  = '0 2px 10px rgba(245,158,11,0.25)';
+    } else {
+      // Fully punched out today
+      const tIn  = formatTime(todayLog.time_in);
+      const tOut = formatTime(todayLog.time_out);
+      ctaInner.className    = '';
+      ctaLabel.textContent  = `Shift complete · ${tIn} – ${tOut}`;
+      ctaLabel.style.color  = 'var(--accent-bright)';
+      ctaSub.textContent    = 'View your full log in Attendance';
+      ctaBtn.innerHTML      = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M16 2v4M8 2v4M2 10h20"/></svg> View Log`;
+      ctaBtn.style.background = 'linear-gradient(135deg,var(--accent-dim),var(--accent))';
+      ctaBtn.style.boxShadow  = '0 2px 10px rgba(59,130,246,0.25)';
+    }
+  }
 
-    const barColor = pct === null ? 'var(--accent)'
-      : pct >= 90 ? 'var(--green)'
-      : pct >= 70 ? 'var(--yellow)'
-      : 'var(--red)';
+  // ── DTR log list ─────────────────────────────────────────────────────────
+  // Expose all rows to the modal — the card itself opens the modal on click
+  window._dtrAllRows = dtrRows;
+}
 
-    return `
-      <div class="emp-record-row">
-        <div class="emp-record-left">
-          <div class="emp-record-period">${label}</div>
-          <div class="emp-record-meta">${attendance}</div>
-          ${pct !== null ? `
-            <div class="emp-dtr-bar-wrap">
-              <div class="emp-dtr-bar" style="width:${pct}%;background:${barColor}"></div>
-            </div>` : ''}
-        </div>
-        <div class="emp-record-right">
-          ${pct !== null ? `<div class="emp-record-net" style="color:${barColor}">${pct}%</div>` : ''}
-          <div class="emp-record-gross" style="font-size:11px">${isEvent ? 'Event-based' : 'Attendance rate'}</div>
-        </div>
-      </div>`;
-  }).join('');
+// ── DTR helpers ─────────────────────────────────────────────────────────────
+function formatTime(t) {
+  if (!t) return '—';
+  const d = new Date('1970-01-01T' + (t.length <= 8 ? t : t.slice(11, 19)));
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
 function emptyState(msg) {
