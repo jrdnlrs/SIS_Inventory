@@ -973,11 +973,33 @@ function renderHistory() {
         <td class="mono" style="color:var(--accent);font-weight:600">${peso(p.total_net)}</td>
         <td style="font-size:12px;color:var(--text-muted)">${created}</td>
         <td>
-          <button class="btn btn-edit" style="font-size:11px;padding:4px 10px"
-            onclick="viewPeriodRecords('${p.id}', '${p.month}')">View</button>
+          <div class="td-actions">
+            <button class="btn btn-edit" style="font-size:11px;padding:4px 10px"
+              onclick="viewPeriodRecords('${p.id}', '${p.month}')">View</button>
+            <button class="btn btn-danger" style="font-size:11px;padding:4px 10px"
+              onclick="deletePeriod('${p.id}', '${label}')">Delete</button>
+          </div>
         </td>
       </tr>`;
   }).join('');
+}
+
+async function deletePeriod(periodId, label) {
+  if (!confirm(`Delete payroll run "${label}"?\n\nThis will also delete all individual payroll records for this period. This cannot be undone.`)) return;
+  setLoading(true);
+  try {
+    // Delete child records first, then the period
+    await sbDelete(`${RECORD_URL}?period_id=eq.${periodId}`);
+    await sbDelete(`${PERIOD_URL}?id=eq.${periodId}`);
+    payrollHistory = payrollHistory.filter(p => p.id !== periodId);
+    renderHistory();
+    toast('Payroll run deleted.', 'success');
+  } catch (err) {
+    console.error(err);
+    toast('Delete failed. Check your connection.', 'error');
+  } finally {
+    setLoading(false);
+  }
 }
 
 async function viewPeriodRecords(periodId, month) {
