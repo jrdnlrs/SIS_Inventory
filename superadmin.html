@@ -153,6 +153,77 @@
       <div class="sa-spinner" id="spinSettings"></div>
       Save Global Variables
     </button>
+
+    <!-- ── IP WHITELIST MANAGER ── -->
+    <div style="margin-top:32px;border-top:1px solid var(--border);padding-top:28px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-bright)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Office Network Whitelist
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;margin-top:3px;">
+            Only devices on these networks can time in / time out
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-ghost" style="font-size:12px;" onclick="detectMyIp()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Detect My IP
+          </button>
+          <button class="btn btn-primary" style="font-size:12px;" onclick="openAddIpModal()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add IP / Prefix
+          </button>
+        </div>
+      </div>
+
+      <div id="ipFallbackNotice" style="display:none;padding:10px 14px;border-radius:8px;background:rgba(251,146,60,0.08);border:1px solid rgba(251,146,60,0.2);font-size:12px;color:var(--orange);font-family:'JetBrains Mono',monospace;margin-bottom:12px;">
+        ⚠ Using hardcoded fallback list — <code>allowed_ips</code> table not found in Supabase. See setup instructions below.
+      </div>
+
+      <div id="detectedIpBanner" style="display:none;padding:10px 14px;border-radius:8px;background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.2);font-size:12px;color:var(--green);font-family:'JetBrains Mono',monospace;margin-bottom:12px;flex-wrap:wrap;gap:10px;"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>IP / Prefix</th>
+              <th>Label</th>
+              <th>Source</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="ipWhitelistBody">
+            <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <details style="margin-top:14px;">
+        <summary style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);cursor:pointer;letter-spacing:0.5px;text-transform:uppercase;">
+          Supabase Setup Instructions
+        </summary>
+        <div style="margin-top:10px;padding:14px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);line-height:1.8;">
+          Run this SQL in your Supabase SQL Editor to enable live IP management:<br><br>
+          <code style="display:block;background:#080c14;padding:12px;border-radius:6px;color:var(--accent-bright);font-size:11px;white-space:pre-wrap;">CREATE TABLE allowed_ips (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  type text NOT NULL DEFAULT 'prefix',
+  value text NOT NULL,
+  label text,
+  created_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE allowed_ips ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public read"  ON allowed_ips FOR SELECT USING (true);
+CREATE POLICY "Anon insert"  ON allowed_ips FOR INSERT WITH CHECK (true);
+CREATE POLICY "Anon update"  ON allowed_ips FOR UPDATE USING (true);
+CREATE POLICY "Anon delete"  ON allowed_ips FOR DELETE USING (true);</code>
+        </div>
+      </details>
+    </div>
+
   </div>
 
   <div id="tab-users" class="ptab-content" style="display:none">
@@ -376,23 +447,66 @@
 </div>
 
 
+<!-- ADD IP MODAL -->
+<div class="overlay" id="addIpModal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="max-width:460px;">
+    <h2><span class="dot" style="background:var(--accent);box-shadow:0 0 8px var(--accent);"></span> Add Office IP / Prefix</h2>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Match Type</label>
+        <select id="ipType">
+          <option value="prefix">Prefix (recommended — covers entire subnet)</option>
+          <option value="exact">Exact IP (for static IPs only)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>IP / Prefix <span style="color:var(--red)">*</span></label>
+        <input type="text" id="ipValue" placeholder="e.g. 192.168.110 or full IP" />
+        <span style="font-size:10px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;margin-top:3px;">
+          Prefix: first 3 octets (IPv4) or first 4 groups (IPv6)
+        </span>
+      </div>
+      <div class="form-group form-full">
+        <label>Label <span style="color:var(--text-muted);font-size:10px">(optional)</span></label>
+        <input type="text" id="ipLabel" placeholder="e.g. 2nd Floor LAN" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('addIpModal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveIpEntry()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px"><polyline points="20 6 9 17 4 12"/></svg>
+        Add to Whitelist
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-container" id="toastContainer"></div>
 
 <script src="config.js"></script>
 <script src="auth.js"></script>
 <script>
   // ── CONSTANTS & STATE ──
-  const SYS_URL   = `${SUPABASE_URL}/rest/v1/system_settings`;
-  const AUDIT_URL = `${SUPABASE_URL}/rest/v1/audit_logs`;
-  const EMP_URL   = `${SUPABASE_URL}/rest/v1/employees`;
-  const DTR_URL   = `${SUPABASE_URL}/rest/v1/dtr_logs`;
-  
-  let currentUser = null;
-  let settingsId  = null;
-  let saEmpRecord = null;
-  let todayLog    = null;
-  let isTimedIn   = false;
+  const SYS_URL        = `${SUPABASE_URL}/rest/v1/system_settings`;
+  const AUDIT_URL      = `${SUPABASE_URL}/rest/v1/audit_logs`;
+  const EMP_URL        = `${SUPABASE_URL}/rest/v1/employees`;
+  const DTR_URL        = `${SUPABASE_URL}/rest/v1/dtr_logs`;
+  const ALLOWED_IPS_URL = `${SUPABASE_URL}/rest/v1/allowed_ips`;
+
+  // Hardcoded fallback — matches profile.html fallback
+  const OFFICE_IP_FALLBACK = [
+    { type: 'prefix', value: '192.168.110',        label: 'LAN (both floors)',      _fallback: true },
+    { type: 'prefix', value: '192.168.254',        label: 'WiFi (both floors)',     _fallback: true },
+    { type: 'prefix', value: '2001:fd8:cc05:8f00', label: 'WiFi IPv6 (both floors)',_fallback: true },
+  ];
+
+  let currentUser  = null;
+  let settingsId   = null;
+  let saEmpRecord  = null;
+  let todayLog     = null;
+  let isTimedIn    = false;
   let employeeDict = {}; // Cache for Time Log names
+  let ipListSource = 'supabase'; // or 'fallback'
 
   // ── INIT & AUTH GUARD ──
   document.addEventListener('DOMContentLoaded', async function () {
@@ -406,6 +520,7 @@
 
     // Load initial data
     loadSystemSettings();
+    loadIpWhitelist();
     loadUsers();
     
     // Set default date for manual logs
@@ -511,6 +626,143 @@
     } catch (e) {
       toast('Failed to save settings.', 'error');
     } finally { spin.style.display = 'none'; }
+  }
+
+  // ══════════════════════════════════════════
+  // IP WHITELIST MANAGEMENT
+  // ══════════════════════════════════════════
+  async function loadIpWhitelist() {
+    const tbody   = document.getElementById('ipWhitelistBody');
+    const notice  = document.getElementById('ipFallbackNotice');
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px;">Loading…</td></tr>`;
+
+    let entries = [];
+    let usingFallback = false;
+
+    try {
+      const res = await fetch(`${ALLOWED_IPS_URL}?select=*&order=created_at.asc`, { headers: makeHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.length > 0) {
+          entries = data;
+          ipListSource = 'supabase';
+        } else {
+          // Table exists but empty — show fallback as read-only seed data
+          entries = OFFICE_IP_FALLBACK;
+          usingFallback = true;
+          ipListSource = 'fallback';
+        }
+      } else {
+        throw new Error('Table not found');
+      }
+    } catch {
+      entries = OFFICE_IP_FALLBACK;
+      usingFallback = true;
+      ipListSource = 'fallback';
+    }
+
+    notice.style.display = usingFallback ? 'block' : 'none';
+
+    if (!entries.length) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">No entries yet. Add your first office IP above.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = entries.map(e => {
+      const isFallback = e._fallback || usingFallback;
+      const typeBadge = e.type === 'exact'
+        ? `<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(251,146,60,0.1);color:var(--orange);border:1px solid rgba(251,146,60,0.2);font-family:'JetBrains Mono',monospace;font-weight:600;">EXACT</span>`
+        : `<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(59,130,246,0.1);color:var(--accent-bright);border:1px solid rgba(59,130,246,0.2);font-family:'JetBrains Mono',monospace;font-weight:600;">PREFIX</span>`;
+      const sourceBadge = isFallback
+        ? `<span style="font-size:10px;color:var(--orange);font-family:'JetBrains Mono',monospace;">hardcoded</span>`
+        : `<span style="font-size:10px;color:var(--green);font-family:'JetBrains Mono',monospace;">supabase</span>`;
+      const deleteBtn = isFallback
+        ? `<span style="font-size:10px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;">read-only</span>`
+        : `<button class="btn btn-danger" style="padding:4px 10px;font-size:11px;" onclick="deleteIpEntry('${e.id}', '${(e.value||'').replace(/'/g,"\\'")}')">Remove</button>`;
+
+      return `<tr>
+        <td>${typeBadge}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent-bright);">${e.value || e.ip || '—'}</td>
+        <td style="font-size:12px;color:var(--text-muted);">${e.label || '—'}</td>
+        <td>${sourceBadge}</td>
+        <td>${deleteBtn}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function openAddIpModal() {
+    document.getElementById('ipValue').value = '';
+    document.getElementById('ipLabel').value = '';
+    document.getElementById('ipType').value  = 'prefix';
+    document.getElementById('addIpModal').classList.add('open');
+    setTimeout(() => document.getElementById('ipValue').focus(), 100);
+  }
+
+  async function saveIpEntry() {
+    const value = document.getElementById('ipValue').value.trim();
+    const label = document.getElementById('ipLabel').value.trim();
+    const type  = document.getElementById('ipType').value;
+    if (!value) { toast('IP / prefix is required.', 'error'); return; }
+
+    try {
+      await sbPost(ALLOWED_IPS_URL, { type, value, label: label || null });
+      document.getElementById('addIpModal').classList.remove('open');
+      logAudit('IP_WHITELIST_ADD', `Added ${type} IP: ${value} (${label || 'no label'})`);
+      toast('IP entry added.', 'success');
+      await loadIpWhitelist();
+    } catch (e) {
+      toast('Failed to save IP. Make sure the allowed_ips table exists in Supabase.', 'error');
+    }
+  }
+
+  async function deleteIpEntry(id, value) {
+    if (!confirm(`Remove "${value}" from the whitelist?`)) return;
+    try {
+      const res = await fetch(`${ALLOWED_IPS_URL}?id=eq.${id}`, {
+        method: 'DELETE',
+        headers: { ...makeHeaders(), 'Prefer': 'return=minimal' },
+      });
+      if (!res.ok) throw new Error(res.status);
+      logAudit('IP_WHITELIST_REMOVE', `Removed IP entry: ${value}`);
+      toast('IP entry removed.', 'info');
+      await loadIpWhitelist();
+    } catch (e) {
+      toast('Failed to remove IP entry.', 'error');
+    }
+  }
+
+  async function detectMyIp() {
+    const banner = document.getElementById('detectedIpBanner');
+    banner.style.display = 'flex';
+    banner.innerHTML = `<span style="color:var(--text-muted)">Detecting…</span>`;
+    try {
+      const [pubRes, localIp] = await Promise.all([
+        fetch('https://api.ipify.org?format=json').then(r => r.json()),
+        new Promise(resolve => {
+          try {
+            const pc = new RTCPeerConnection({ iceServers: [] });
+            pc.createDataChannel('');
+            pc.createOffer().then(o => pc.setLocalDescription(o));
+            const t = setTimeout(() => { pc.close(); resolve(null); }, 1500);
+            pc.onicecandidate = e => {
+              if (!e || !e.candidate) return;
+              const m = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+              if (m && !m[1].startsWith('127.')) { clearTimeout(t); pc.close(); resolve(m[1]); }
+            };
+          } catch { resolve(null); }
+        }),
+      ]);
+      const publicIp = pubRes.ip || null;
+      const parts = [];
+      if (publicIp) parts.push(`<strong>Public IP:</strong> ${publicIp}`);
+      if (localIp)  parts.push(`<strong>LAN IP:</strong> ${localIp}`);
+      banner.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        ${parts.join(' &nbsp;·&nbsp; ')}
+        <span style="color:var(--text-dim);margin-left:4px;">— use these to add entries above</span>`;
+    } catch {
+      banner.innerHTML = `<span style="color:var(--red)">Could not detect IP. Check your connection.</span>`;
+    }
   }
 
   // ══════════════════════════════════════════

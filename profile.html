@@ -984,7 +984,111 @@ function initClock() {
   updateClock();
 }
 
-// ── PUNCH LOGIC ──
+// ── IP WHITELIST ──────────────────────────────────────────────────────────────
+// Hardcoded fallback — used if Supabase allowed_ips table is unavailable.
+// Prefixes: match first N segments. Full addresses: exact match.
+const OFFICE_IP_FALLBACK = [
+  { type: 'prefix', value: '192.168.110',      label: 'LAN (both floors)' },
+  { type: 'prefix', value: '192.168.254',      label: 'WiFi (both floors)' },
+  { type: 'prefix', value: '2001:fd8:cc05:8f00', label: 'WiFi IPv6 (both floors)' },
+  { type: 'prefix', value: '180.190.174', label: 'Office Public IP' },
+];
+
+const ALLOWED_IPS_URL = `${SUPABASE_URL}/rest/v1/allowed_ips`;
+
+/**
+ * Fetch the current device's public IP via api.ipify.org.
+ * Returns null on failure.
+ */
+async function getPublicIp() {
+  try {
+    const res = await fetch('https://api.ipify.org?format=json');
+    const data = await res.json();
+    return data.ip || null;
+  } catch { return null; }
+}
+
+/**
+ * Attempt to get LAN/local IP via WebRTC.
+ * Returns null if unavailable or blocked.
+ */
+function getLocalIp() {
+  return new Promise(resolve => {
+    try {
+      const pc = new RTCPeerConnection({ iceServers: [] });
+      pc.createDataChannel('');
+      pc.createOffer().then(o => pc.setLocalDescription(o));
+      const timeout = setTimeout(() => { pc.close(); resolve(null); }, 1500);
+      pc.onicecandidate = e => {
+        if (!e || !e.candidate) return;
+        const m = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+        if (m && !m[1].startsWith('127.')) {
+          clearTimeout(timeout);
+          pc.close();
+          resolve(m[1]);
+        }
+      };
+    } catch { resolve(null); }
+  });
+}
+
+/**
+ * Check if a given IP matches any entry in the whitelist.
+ * Supports prefix matching (IPv4 and IPv6) and exact matching.
+ */
+function ipMatchesWhitelist(ip, whitelist) {
+  if (!ip) return false;
+  const lower = ip.toLowerCase().trim();
+  return whitelist.some(entry => {
+    const v = (entry.value || entry.ip || '').toLowerCase().trim();
+    const t = entry.type || 'prefix';
+    if (t === 'exact') return lower === v;
+    // prefix: IP must start with the prefix
+    return lower.startsWith(v);
+  });
+}
+
+/**
+ * Load allowed IPs from Supabase, falling back to hardcoded list.
+ * Returns array of { type, value, label } objects.
+ */
+async function loadAllowedIps() {
+  try {
+    const res = await fetch(`${ALLOWED_IPS_URL}?select=*`, {
+      headers: makeHeaders(),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.length > 0) return data;
+    }
+  } catch { /* fall through */ }
+  return OFFICE_IP_FALLBACK;
+}
+
+/**
+ * Main IP guard — resolves to { allowed: bool, ip: string, source: string }.
+ * Checks both public IP and local/LAN IP against the whitelist.
+ */
+async function checkOfficeNetwork() {
+  const [whitelist, publicIp, localIp] = await Promise.all([
+    loadAllowedIps(),
+    getPublicIp(),
+    getLocalIp(),
+  ]);
+
+  const publicOk = ipMatchesWhitelist(publicIp, whitelist);
+  const localOk  = ipMatchesWhitelist(localIp,  whitelist);
+
+  return {
+    allowed: publicOk || localOk,
+    publicIp,
+    localIp,
+    whitelist,
+    matchedIp: publicOk ? publicIp : (localOk ? localIp : null),
+  };
+}
+
+// ── PUNCH LOGIC ──────────────────────────────────────────────────────────────
 // todayLog: the dtr_logs row for today (if any), loaded when the tab opens
 let todayLog   = null;
 let isTimedIn  = false;
@@ -1097,7 +1201,62 @@ async function handlePunch() {
   const display = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   const status  = document.getElementById('punchStatusText');
 
+  // ── IP GUARD ──────────────────────────────────────────────────────────────
+  // Show a checking state so the user knows something is happening
+  const btn = document.getElementById('btnPunch');
+  btn.disabled = true;
+  status.innerHTML = `<span style="color:var(--text-muted)">Verifying office network…</span>`;
   setLoading(true);
+
+  try {
+    const ipCheck = await checkOfficeNetwork();
+    if (!ipCheck.allowed) {
+      // Build a helpful diagnostic message
+      const detected = [
+        ipCheck.publicIp ? `Public: ${ipCheck.publicIp}` : null,
+        ipCheck.localIp  ? `LAN: ${ipCheck.localIp}`     : null,
+      ].filter(Boolean).join(' · ') || 'Could not detect IP';
+
+      status.innerHTML = `
+        <div style="
+          display:flex;flex-direction:column;align-items:center;gap:10px;
+          padding:18px 20px;border-radius:10px;
+          background:rgba(248,113,113,0.06);
+          border:1px solid rgba(248,113,113,0.2);
+          max-width:420px;margin:0 auto;
+        ">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:0.5px;">
+            Not on Office Network
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);text-align:center;line-height:1.6;">
+            You must be connected to the office network to time in or out.<br>
+            Please connect to the office WiFi or LAN and try again.
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:2px;">
+            ${detected}
+          </div>
+        </div>`;
+      toast('Access denied — not on office network.', 'error');
+      btn.disabled = false;
+      setLoading(false);
+      return;
+    }
+  } catch (ipErr) {
+    // If the IP check itself fails, block as a safety measure
+    console.error('[ip-guard] check failed:', ipErr);
+    status.innerHTML = `<span style="color:var(--orange)">Network check failed. Please try again.</span>`;
+    toast('Could not verify network. Please try again.', 'error');
+    btn.disabled = false;
+    setLoading(false);
+    return;
+  }
+
+  btn.disabled = false;
+  // ── END IP GUARD ──────────────────────────────────────────────────────────
+
   try {
     if (!isTimedIn) {
       // ── TIME IN ──
