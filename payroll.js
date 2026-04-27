@@ -163,12 +163,17 @@ function computePayForEmployee(emp, daysPresent, workingDays) {
   // Monthly equivalent for deduction purposes (extrapolate to full month)
   const monthlyEquiv = workingDays > 0 ? (gross / daysPresent) * workingDays : gross;
 
-  const sss          = computeSSS(monthlyEquiv);
-  const philhealth   = computePhilHealth(monthlyEquiv);
-  const pagibig      = computePagIbig(monthlyEquiv);
-  const tax          = Math.round(computeWithholdingTax(monthlyEquiv, sss, philhealth, pagibig) * 100) / 100;
-  const totalDed     = sss + philhealth + pagibig + tax;
-  const net          = Math.round((gross - totalDed) * 100) / 100;
+  // Read toggle states — if checkbox is unchecked, deduction is ₱0
+  const sssOn  = document.getElementById('chkSss')?.checked       ?? true;
+  const philOn = document.getElementById('chkPhilhealth')?.checked ?? true;
+  const pagOn  = document.getElementById('chkPagibig')?.checked    ?? true;
+
+  const sss        = sssOn  ? computeSSS(monthlyEquiv)        : 0;
+  const philhealth = philOn ? computePhilHealth(monthlyEquiv) : 0;
+  const pagibig    = pagOn  ? computePagIbig(monthlyEquiv)    : 0;
+  const tax        = Math.round(computeWithholdingTax(monthlyEquiv, sss, philhealth, pagibig) * 100) / 100;
+  const totalDed   = sss + philhealth + pagibig + tax;
+  const net        = Math.round((gross - totalDed) * 100) / 100;
 
   return { gross, sss, philhealth, pagibig, tax, totalDed, net, daysPresent, workingDays };
 }
