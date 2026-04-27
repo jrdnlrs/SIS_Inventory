@@ -43,7 +43,11 @@ async function sbPost(url, body) {
     method: 'POST', headers: makeDbHeaders(),
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`POST ${url} failed: ${res.status}`);
+  if (!res.ok) {
+    let errMsg = `POST failed: ${res.status}`;
+    try { errMsg = JSON.stringify(await res.json()); } catch (_) {}
+    throw new Error(errMsg);
+  }
   return res.json();
 }
 
@@ -859,23 +863,36 @@ function generatePayslipPDF(row, month) {
 // ── SAVE PAYROLL & GENERATE ALL PAYSLIPS ──
 async function saveAndGeneratePayslips() {
   if (!computedRows.length) { toast('No computed payroll to save.', 'error'); return; }
-  const month = document.getElementById('payMonth').value;
+  const month    = document.getElementById('payMonth').value;
+  const runLabel = document.getElementById('runLabel')?.value?.trim() || '';
+
+  // Build human-readable label e.g. "April 2026"
+  const [yr, mo]   = month.split('-').map(Number);
+  const monthLabel = new Date(yr, mo - 1).toLocaleString('en-PH', { month: 'long', year: 'numeric' });
+  const label      = runLabel || monthLabel;
 
   setLoading(true);
   try {
-    const periodId = uid();
+    const periodId   = uid();
+    const totalGross = computedRows.reduce((s, r) => s + r.gross, 0);
+    const totalDed   = computedRows.reduce((s, r) => s + r.totalDed, 0);
+    const totalNet   = computedRows.reduce((s, r) => s + r.net, 0);
+
     const period = {
-      id:             periodId,
+      id:               periodId,
       month,
-      employee_count: computedRows.length,
-      total_gross:    computedRows.reduce((s, r) => s + r.gross, 0),
-      total_net:      computedRows.reduce((s, r) => s + r.net, 0),
+      label,
+      employee_count:   computedRows.length,
+      total_gross:      totalGross,
+      total_deductions: totalDed,
+      total_net:        totalNet,
     };
 
     await sbPost(PERIOD_URL, period);
 
     // Save individual records
     const records = computedRows.map(r => ({
+      id:            uid(),
       period_id:     periodId,
       employee_id:   r.emp.id,
       employee_name: r.emp.name,
@@ -899,15 +916,21 @@ async function saveAndGeneratePayslips() {
       generatePayslipPDF(r, month);
     });
 
-    // Clear DTR
-    dtrRows     = [];
+    // Clear state
+    dtrRows      = [];
     computedRows = [];
-    document.getElementById('dtrPreview').style.display = 'none';
+    document.getElementById('dtrPreview').style.display       = 'none';
     document.getElementById('payrollSummaryBar').style.display = 'none';
 
   } catch (err) {
-    console.error(err);
-    toast('Failed to save payroll. Check your connection.', 'error');
+    console.error('[saveAndGeneratePayslips]', err);
+    // Surface the actual Supabase error message
+    let detail = err.message || 'Unknown error';
+    try {
+      const parsed = JSON.parse(err.message);
+      detail = parsed.message || parsed.details || parsed.hint || detail;
+    } catch (_) {}
+    toast(`Failed to save payroll: ${detail}`, 'error');
   } finally {
     setLoading(false);
   }
