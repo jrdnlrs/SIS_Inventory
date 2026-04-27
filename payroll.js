@@ -472,28 +472,155 @@ function matchEmployee(name) {
 function renderDtrPreview() {
   const tbody = document.getElementById('dtrPreviewBody');
   tbody.innerHTML = dtrRows.map(r => {
-    const emp = matchEmployee(r.name);
-    const tag = emp
+    const emp    = matchEmployee(r.name);
+    const tag    = emp
       ? `<span style="color:var(--green);font-size:11px">✓ ${emp.name}</span>`
       : `<span style="color:var(--red);font-size:11px">✗ No match — add to Employees tab</span>`;
 
-    const dots = Object.entries(r.sheets).map(([sheet, st]) => {
-      const color = st === 'P' ? 'var(--green)' : st === 'L' ? 'var(--orange)' : 'var(--red)';
-      return `<span title="${sheet}: ${st}" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${color};margin:1px;"></span>`;
-    }).join('');
+    // Live DTR: show a live badge + late count instead of sheet dots
+    const sourceInfo = r.source === 'live'
+      ? `<span style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:10px;font-family:'JetBrains Mono',monospace;">
+           <span style="background:rgba(52,211,153,0.12);color:var(--green);border:1px solid rgba(52,211,153,0.2);padding:1px 6px;border-radius:4px;">LIVE</span>
+           ${r.lates > 0 ? `<span style="color:var(--orange)">${r.lates} late day${r.lates > 1 ? 's' : ''}</span>` : ''}
+         </span>`
+      : (() => {
+          const dots = Object.entries(r.sheets || {}).map(([sheet, st]) => {
+            const color = st === 'P' ? 'var(--green)' : st === 'L' ? 'var(--orange)' : 'var(--red)';
+            return `<span title="${sheet}: ${st}" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${color};margin:1px;"></span>`;
+          }).join('');
+          return `<div style="margin-top:4px">${dots}</div>`;
+        })();
 
     return `
       <tr>
         <td>
           <strong>${r.name}</strong><br>
           <span style="font-size:11px;display:block;margin-top:2px">${tag}</span>
-          <div style="margin-top:4px">${dots}</div>
+          ${sourceInfo}
         </td>
         <td class="mono">${r.daysPresent} / ${r.workingDays}</td>
         <td class="mono">${emp ? peso(emp.daily_rate) : '—'}</td>
         <td colspan="6" style="color:var(--text-dim);font-size:12px">— click Compute Payroll —</td>
       </tr>`;
   }).join('');
+}
+
+// ═══════════════════════════════════════════
+//  DTR SOURCE TOGGLE
+// ═══════════════════════════════════════════
+
+function switchDtrSource(src) {
+  const livePanel = document.getElementById('liveDtrPanel');
+  const filePanel = document.getElementById('fileDtrPanel');
+  const btnLive   = document.getElementById('dtrSrcLive');
+  const btnFile   = document.getElementById('dtrSrcFile');
+
+  if (src === 'live') {
+    livePanel.style.display = 'flex';
+    filePanel.style.display = 'none';
+    btnLive.classList.add('active');
+    btnFile.classList.remove('active');
+  } else {
+    livePanel.style.display = 'none';
+    filePanel.style.display = 'flex';
+    btnFile.classList.add('active');
+    btnLive.classList.remove('active');
+  }
+
+  // Clear any previously loaded DTR rows when switching source
+  dtrRows = [];
+  document.getElementById('dtrPreview').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════
+//  LIVE DTR LOADER
+//  Pulls dtr_logs from Supabase for the
+//  selected pay month, counts days present
+//  per employee, builds the same dtrRows[]
+//  array that the Excel upload produces.
+// ═══════════════════════════════════════════
+
+async function loadLiveDtr() {
+  const month = document.getElementById('payMonth').value;
+  if (!month) {
+    toast('Select a pay period first.', 'error');
+    return;
+  }
+
+  const workingDays = parseInt(document.getElementById('liveWorkingDays').value, 10) || 26;
+
+  // Build date range for the selected month (YYYY-MM-01 to YYYY-MM-last)
+  const [yr, mo]  = month.split('-').map(Number);
+  const dateFrom  = `${month}-01`;
+  const dateTo    = new Date(yr, mo, 0).toISOString().slice(0, 10); // last day of month
+
+  setLoading(true);
+  try {
+    // Fetch all dtr_logs for the month that have a time_in (= employee was present)
+    const DTR_URL = `${SUPABASE_URL}/rest/v1/dtr_logs`;
+    const logs = await sbGet(
+      `${DTR_URL}?date=gte.${dateFrom}&date=lte.${dateTo}&time_in=not.is.null&select=employee_id,date,time_in,time_out,is_late`
+    );
+
+    if (!logs.length) {
+      toast(`No punch records found for ${month}. Make sure employees have clocked in.`, 'error');
+      setLoading(false);
+      return;
+    }
+
+    // Group logs by employee_id — count distinct days present
+    const empDays = {}; // employee_id → { dates: Set, lates: number }
+    logs.forEach(log => {
+      if (!empDays[log.employee_id]) {
+        empDays[log.employee_id] = { dates: new Set(), lates: 0 };
+      }
+      empDays[log.employee_id].dates.add(log.date);
+      if (log.is_late) empDays[log.employee_id].lates++;
+    });
+
+    // Match employee_ids to employee roster names
+    // employees[] is already loaded; build a quick id→name map
+    const idToEmp = {};
+    employees.forEach(e => { idToEmp[e.id] = e; });
+
+    dtrRows = [];
+    const unmatchedIds = [];
+
+    Object.entries(empDays).forEach(([empId, data]) => {
+      const emp = idToEmp[empId];
+      if (!emp) {
+        unmatchedIds.push(empId);
+        return;
+      }
+      dtrRows.push({
+        name:        emp.name,
+        daysPresent: data.dates.size,
+        workingDays: workingDays,
+        lates:       data.lates,
+        source:      'live',  // flag so renderDtrPreview knows this is live data
+      });
+    });
+
+    if (!dtrRows.length) {
+      toast('Punch records found but no employees could be matched to the roster.', 'error');
+      setLoading(false);
+      return;
+    }
+
+    renderDtrPreview();
+    document.getElementById('dtrPreview').style.display = 'block';
+
+    const msg = unmatchedIds.length
+      ? `Live DTR loaded — ${dtrRows.length} employees. ${unmatchedIds.length} punch record(s) had no matching roster entry.`
+      : `Live DTR loaded — ${dtrRows.length} employees, ${workingDays} working days.`;
+    toast(msg, unmatchedIds.length ? 'info' : 'success');
+
+  } catch (err) {
+    console.error('[loadLiveDtr]', err);
+    toast('Failed to load live DTR records. Check Supabase connection.', 'error');
+  } finally {
+    setLoading(false);
+  }
 }
 
 function computePayroll() {
