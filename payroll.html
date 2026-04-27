@@ -96,7 +96,6 @@
           <tr>
             <th>Name</th>
             <th>Position</th>
-            <th>Type</th>
             <th>Rate</th>
             <th>SSS No.</th>
             <th>PhilHealth No.</th>
@@ -204,39 +203,7 @@
 
     <!-- ── Regular DTR Section ── -->
     <div id="dtrRegularSection">
-
-      <!-- Source toggle -->
-      <div style="display:flex;gap:6px;margin-bottom:14px;align-items:center;">
-        <span style="font-size:10px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-muted);margin-right:4px;">DTR Source:</span>
-        <button id="dtrSrcLive" class="ptab active" style="padding:5px 14px;font-size:12px" onclick="switchDtrSource('live')">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-          Live Punch DTR
-        </button>
-        <button id="dtrSrcFile" class="ptab" style="padding:5px 14px;font-size:12px" onclick="switchDtrSource('file')">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Upload Excel
-        </button>
-      </div>
-
-      <!-- Live DTR panel -->
-      <div id="liveDtrPanel" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);border-left:3px solid var(--accent);">
-        <div>
-          <div style="font-size:10px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-muted);margin-bottom:6px;">Working Days This Month</div>
-          <input type="number" id="liveWorkingDays" min="1" max="31" value="26"
-            style="width:80px;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;"
-            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'" />
-        </div>
-        <button class="btn btn-primary" onclick="loadLiveDtr()" style="display:flex;align-items:center;gap:7px;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-          Load from Live Punch DTR
-        </button>
-        <span style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;align-self:center;">
-          Reads employee punch records for the selected pay period
-        </span>
-      </div>
-
-      <!-- Excel upload panel (hidden by default) -->
-      <div id="fileDtrPanel" style="display:none;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
         <input type="file" id="dtrFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="onDtrFileChosen(event)" />
         <button class="btn btn-ghost" onclick="document.getElementById('dtrFileInput').click()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -250,7 +217,6 @@
           Columns: Name · Days Present · Working Days
         </span>
       </div>
-
     </div>
 
     <!-- ── Event DTR Section ── -->
