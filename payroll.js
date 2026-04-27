@@ -161,21 +161,33 @@ function computeWithholdingTax(monthlyGross, sss, philhealth, pagibig) {
 /**
  * Compute all deductions and net pay for one employee for a given period.
  * daysPresent / workingDays prorates the monthly salary.
+ *
+ * Tax logic:
+ * - Monthly equivalent is used to determine the correct BIR tax BRACKET
+ * - The resulting monthly tax is then prorated by (daysPresent / workingDays)
+ *   so an employee who worked 1/26 days only pays 1/26 of the monthly tax
+ * - SSS, PhilHealth, Pag-IBIG are also prorated the same way
  */
 function computePayForEmployee(emp, daysPresent, workingDays) {
   const gross        = Math.round(emp.daily_rate * daysPresent * 100) / 100;
-  // Monthly equivalent for deduction purposes (extrapolate to full month)
-  const monthlyEquiv = workingDays > 0 ? (gross / daysPresent) * workingDays : gross;
+  const ratio        = workingDays > 0 ? daysPresent / workingDays : 1;
+  // Monthly equivalent for bracket lookup only
+  const monthlyEquiv = workingDays > 0 ? emp.daily_rate * workingDays : gross;
 
   // Read toggle states — if checkbox is unchecked, deduction is ₱0
-  const sssOn  = document.getElementById('chkSss')?.checked       ?? true;
-  const philOn = document.getElementById('chkPhilhealth')?.checked ?? true;
-  const pagOn  = document.getElementById('chkPagibig')?.checked    ?? true;
+  const sssOn  = document.getElementById('chkSss')?.checked       ?? false;
+  const philOn = document.getElementById('chkPhilhealth')?.checked ?? false;
+  const pagOn  = document.getElementById('chkPagibig')?.checked    ?? false;
 
-  const sss        = sssOn  ? computeSSS(monthlyEquiv)        : 0;
-  const philhealth = philOn ? computePhilHealth(monthlyEquiv) : 0;
-  const pagibig    = pagOn  ? computePagIbig(monthlyEquiv)    : 0;
-  const tax        = Math.round(computeWithholdingTax(monthlyEquiv, sss, philhealth, pagibig) * 100) / 100;
+  // Compute full monthly deductions first, then prorate to actual days
+  const sss        = sssOn  ? Math.round(computeSSS(monthlyEquiv)        * ratio * 100) / 100 : 0;
+  const philhealth = philOn ? Math.round(computePhilHealth(monthlyEquiv) * ratio * 100) / 100 : 0;
+  const pagibig    = pagOn  ? Math.round(computePagIbig(monthlyEquiv)    * ratio * 100) / 100 : 0;
+
+  // Tax: compute on monthly equiv for correct bracket, then prorate
+  const monthlyTax = computeWithholdingTax(monthlyEquiv, computeSSS(monthlyEquiv), computePhilHealth(monthlyEquiv), computePagIbig(monthlyEquiv));
+  const tax        = Math.round(monthlyTax * ratio * 100) / 100;
+
   const totalDed   = sss + philhealth + pagibig + tax;
   const net        = Math.round((gross - totalDed) * 100) / 100;
 
@@ -973,33 +985,11 @@ function renderHistory() {
         <td class="mono" style="color:var(--accent);font-weight:600">${peso(p.total_net)}</td>
         <td style="font-size:12px;color:var(--text-muted)">${created}</td>
         <td>
-          <div class="td-actions">
-            <button class="btn btn-edit" style="font-size:11px;padding:4px 10px"
-              onclick="viewPeriodRecords('${p.id}', '${p.month}')">View</button>
-            <button class="btn btn-danger" style="font-size:11px;padding:4px 10px"
-              onclick="deletePeriod('${p.id}', '${label}')">Delete</button>
-          </div>
+          <button class="btn btn-edit" style="font-size:11px;padding:4px 10px"
+            onclick="viewPeriodRecords('${p.id}', '${p.month}')">View</button>
         </td>
       </tr>`;
   }).join('');
-}
-
-async function deletePeriod(periodId, label) {
-  if (!confirm(`Delete payroll run "${label}"?\n\nThis will also delete all individual payroll records for this period. This cannot be undone.`)) return;
-  setLoading(true);
-  try {
-    // Delete child records first, then the period
-    await sbDelete(`${RECORD_URL}?period_id=eq.${periodId}`);
-    await sbDelete(`${PERIOD_URL}?id=eq.${periodId}`);
-    payrollHistory = payrollHistory.filter(p => p.id !== periodId);
-    renderHistory();
-    toast('Payroll run deleted.', 'success');
-  } catch (err) {
-    console.error(err);
-    toast('Delete failed. Check your connection.', 'error');
-  } finally {
-    setLoading(false);
-  }
 }
 
 async function viewPeriodRecords(periodId, month) {
