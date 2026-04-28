@@ -224,6 +224,81 @@ CREATE POLICY "Anon delete"  ON allowed_ips FOR DELETE USING (true);</code>
       </details>
     </div>
 
+    <!-- ── CALL TIME MANAGER ── -->
+    <div style="margin-top:32px;border-top:1px solid var(--border);padding-top:28px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Daily Call Time
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;margin-top:3px;">
+            Employees who time in after the call time are automatically marked late
+          </div>
+        </div>
+        <button class="btn btn-primary" style="font-size:12px;" onclick="openAddCallTimeModal()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Set Call Time
+        </button>
+      </div>
+
+      <!-- Today's active call time banner -->
+      <div id="todayCallTimeBanner" style="display:none;padding:14px 18px;border-radius:10px;background:rgba(251,146,60,0.08);border:1px solid rgba(251,146,60,0.25);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:3px;">Today's Call Time</div>
+            <div id="todayCallTimeVal" style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:var(--orange);">—</div>
+          </div>
+          <div id="todayCallTimeLabel" style="font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;"></div>
+        </div>
+        <button class="btn btn-danger" style="font-size:11px;padding:5px 12px;" onclick="deleteTodayCallTime()">Remove</button>
+      </div>
+      <div id="noCallTimeBanner" style="display:none;padding:12px 16px;border-radius:8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.15);font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;margin-bottom:14px;">
+        No call time set for today — employees will not be flagged as late.
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Call Time</th>
+              <th>Label</th>
+              <th>Set By</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="callTimeTableBody">
+            <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px;">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <details style="margin-top:14px;">
+        <summary style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);cursor:pointer;letter-spacing:0.5px;text-transform:uppercase;">
+          Supabase Setup Instructions
+        </summary>
+        <div style="margin-top:10px;padding:14px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);line-height:1.8;">
+          Run this SQL in your Supabase SQL Editor to enable call time management:<br><br>
+          <code style="display:block;background:#080c14;padding:12px;border-radius:6px;color:var(--accent-bright);font-size:11px;white-space:pre-wrap;">CREATE TABLE call_times (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  date date NOT NULL UNIQUE,
+  call_time time NOT NULL,
+  label text,
+  set_by text,
+  created_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE call_times ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public read"  ON call_times FOR SELECT USING (true);
+CREATE POLICY "Anon insert"  ON call_times FOR INSERT WITH CHECK (true);
+CREATE POLICY "Anon update"  ON call_times FOR UPDATE USING (true);
+CREATE POLICY "Anon delete"  ON call_times FOR DELETE USING (true);</code>
+        </div>
+      </details>
+    </div>
+
   </div>
 
   <div id="tab-users" class="ptab-content" style="display:none">
@@ -521,6 +596,7 @@ CREATE POLICY "Anon delete"  ON allowed_ips FOR DELETE USING (true);</code>
     // Load initial data
     loadSystemSettings();
     loadIpWhitelist();
+    loadCallTimes();
     loadUsers();
     
     // Set default date for manual logs
@@ -1113,10 +1189,21 @@ CREATE POLICY "Anon delete"  ON allowed_ips FOR DELETE USING (true);</code>
     try {
       if (!isTimedIn) {
         if (todayLog) { toast('You already have a record for today.', 'error'); return; }
-        const [saved] = await sbPost(DTR_URL, { employee_id: saEmpRecord.id, date: today, time_in: nowTime, time_out: null, is_late: false });
+
+        // ── Check call time for late detection ──
+        let isLate = false;
+        try {
+          const ctRows = await sbGet(`${CALL_TIMES_URL}?date=eq.${today}&select=call_time&limit=1`);
+          if (ctRows.length) {
+            isLate = nowTime > ctRows[0].call_time;
+          }
+        } catch (_) { /* call_times table may not exist yet — treat as not late */ }
+
+        const [saved] = await sbPost(DTR_URL, { employee_id: saEmpRecord.id, date: today, time_in: nowTime, time_out: null, is_late: isLate });
         todayLog = saved; isTimedIn = true; updatePunchButton();
-        status.innerHTML = `Timed in at <strong style="color:var(--text)">${display}</strong>.`;
-        toast('Time in recorded.', 'success'); logAudit('TIME_IN', 'Super Admin logged time in.');
+        status.innerHTML = `Timed in at <strong style="color:var(--text)">${display}</strong>${isLate ? ' <span style="color:var(--orange);font-size:11px">(Late)</span>' : ''}.`;
+        toast(isLate ? 'Time in recorded — marked late.' : 'Time in recorded.', isLate ? 'info' : 'success');
+        logAudit('TIME_IN', `Super Admin logged time in${isLate ? ' (late)' : ''}.`);
       } else {
         if (!todayLog) return;
         await sbPatch(`${DTR_URL}?id=eq.${todayLog.id}`, { time_out: nowTime });
@@ -1126,6 +1213,196 @@ CREATE POLICY "Anon delete"  ON allowed_ips FOR DELETE USING (true);</code>
       }
     } catch (e) { toast(`Punch failed.`, 'error'); }
   }
+
+  // ══════════════════════════════════════════
+  // CALL TIME MANAGEMENT
+  // ══════════════════════════════════════════
+  const CALL_TIMES_URL = `${SUPABASE_URL}/rest/v1/call_times`;
+  let _editCallTimeId  = null;
+  let _todayCallTimeId = null;
+
+  async function loadCallTimes() {
+    const tbody = document.getElementById('callTimeTableBody');
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px;">Loading…</td></tr>`;
+
+    const todayBanner   = document.getElementById('todayCallTimeBanner');
+    const noBanner      = document.getElementById('noCallTimeBanner');
+    const todayVal      = document.getElementById('todayCallTimeVal');
+    const todayLbl      = document.getElementById('todayCallTimeLabel');
+    const today         = new Date().toISOString().slice(0, 10);
+
+    try {
+      const rows = await sbGet(`${CALL_TIMES_URL}?select=*&order=date.desc&limit=30`);
+
+      // Today's banner
+      const todayRow = rows.find(r => r.date === today);
+      if (todayRow) {
+        _todayCallTimeId       = todayRow.id;
+        todayVal.textContent   = fmtCallTime(todayRow.call_time);
+        todayLbl.textContent   = todayRow.label ? `· ${todayRow.label}` : '';
+        todayBanner.style.display = 'flex';
+        noBanner.style.display    = 'none';
+      } else {
+        _todayCallTimeId          = null;
+        todayBanner.style.display = 'none';
+        noBanner.style.display    = 'block';
+      }
+
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">No call times set yet.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = rows.map(r => {
+        const isToday = r.date === today;
+        return `<tr style="${isToday ? 'background:rgba(251,146,60,0.05)' : ''}">
+          <td style="font-weight:${isToday ? '700' : '400'};color:${isToday ? 'var(--orange)' : 'var(--text)'}">
+            ${fmtDate(r.date)}
+            ${isToday ? `<span style="font-size:9px;font-family:'JetBrains Mono',monospace;background:rgba(251,146,60,0.15);color:var(--orange);padding:1px 6px;border-radius:4px;margin-left:6px;">TODAY</span>` : ''}
+          </td>
+          <td style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--orange);">${fmtCallTime(r.call_time)}</td>
+          <td style="font-size:12px;color:var(--text-muted);">${r.label || '—'}</td>
+          <td style="font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;">${r.set_by || '—'}</td>
+          <td>
+            <div class="td-actions">
+              <button class="btn btn-edit" style="padding:4px 10px;font-size:11px;" onclick="openEditCallTimeModal('${r.id}','${r.date}','${r.call_time}','${(r.label||'').replace(/'/g,"\\'")}')">Edit</button>
+              <button class="btn btn-danger" style="padding:4px 10px;font-size:11px;" onclick="deleteCallTime('${r.id}','${r.date}')">Delete</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--orange);padding:16px;font-size:12px;">
+        call_times table not found — run the SQL setup above first.
+      </td></tr>`;
+      noBanner.style.display    = 'block';
+      todayBanner.style.display = 'none';
+    }
+  }
+
+  function fmtCallTime(t) {
+    if (!t) return '—';
+    const d = new Date('1970-01-01T' + (t.length <= 8 ? t : t.slice(11,19)));
+    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function fmtDate(dateStr) {
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-PH', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
+  }
+
+  function openAddCallTimeModal() {
+    _editCallTimeId = null;
+    document.getElementById('ctModalTitle').textContent = 'Set Call Time';
+    // Default date = today
+    document.getElementById('ctDate').value      = new Date().toISOString().slice(0, 10);
+    document.getElementById('ctTime').value      = '09:00';
+    document.getElementById('ctLabel').value     = '';
+    document.getElementById('ctModal').classList.add('open');
+    setTimeout(() => document.getElementById('ctTime').focus(), 100);
+  }
+
+  function openEditCallTimeModal(id, date, time, label) {
+    _editCallTimeId = id;
+    document.getElementById('ctModalTitle').textContent = 'Edit Call Time';
+    document.getElementById('ctDate').value  = date;
+    document.getElementById('ctTime').value  = time.slice(0, 5); // HH:MM
+    document.getElementById('ctLabel').value = label;
+    document.getElementById('ctModal').classList.add('open');
+    setTimeout(() => document.getElementById('ctTime').focus(), 100);
+  }
+
+  async function saveCallTime() {
+    const date  = document.getElementById('ctDate').value;
+    const time  = document.getElementById('ctTime').value;
+    const label = document.getElementById('ctLabel').value.trim();
+    if (!date || !time) { toast('Date and time are required.', 'error'); return; }
+
+    const payload = {
+      date,
+      call_time: time + ':00',
+      label:     label || null,
+      set_by:    currentUser.display_name || currentUser.username,
+    };
+
+    try {
+      if (_editCallTimeId) {
+        await sbPatch(`${CALL_TIMES_URL}?id=eq.${_editCallTimeId}`, payload);
+        logAudit('CALL_TIME_UPDATE', `Updated call time for ${date} to ${time}${label ? ' · ' + label : ''}`);
+        toast('Call time updated.', 'success');
+      } else {
+        await sbPost(CALL_TIMES_URL, payload);
+        logAudit('CALL_TIME_SET', `Set call time for ${date} to ${time}${label ? ' · ' + label : ''}`);
+        toast('Call time saved.', 'success');
+      }
+      document.getElementById('ctModal').classList.remove('open');
+      await loadCallTimes();
+    } catch (e) {
+      // Unique constraint hit — date already exists, offer to update it
+      if (e.message.includes('23505') || e.message.includes('duplicate')) {
+        toast('A call time already exists for that date. Use Edit to change it.', 'error');
+      } else {
+        toast('Failed to save call time. Make sure the table exists.', 'error');
+      }
+    }
+  }
+
+  async function deleteCallTime(id, date) {
+    if (!confirm(`Remove call time for ${fmtDate(date)}?`)) return;
+    try {
+      const res = await fetch(`${CALL_TIMES_URL}?id=eq.${id}`, {
+        method: 'DELETE',
+        headers: { ...makeHeaders(), 'Prefer': 'return=minimal' },
+      });
+      if (!res.ok) throw new Error(res.status);
+      logAudit('CALL_TIME_DELETE', `Removed call time for ${date}`);
+      toast('Call time removed.', 'info');
+      await loadCallTimes();
+    } catch (e) {
+      toast('Failed to remove call time.', 'error');
+    }
+  }
+
+  async function deleteTodayCallTime() {
+    if (!_todayCallTimeId) return;
+    const today = new Date().toISOString().slice(0, 10);
+    await deleteCallTime(_todayCallTimeId, today);
+  }
 </script>
+
+<!-- ── CALL TIME MODAL ── -->
+<div class="overlay" id="ctModal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="max-width:420px;">
+    <h2>
+      <span class="dot" style="background:var(--orange);box-shadow:0 0 8px var(--orange);"></span>
+      <span id="ctModalTitle">Set Call Time</span>
+    </h2>
+    <p style="font-size:13px;color:var(--text-muted);margin:-8px 0 20px;">
+      Employees who time in after this will be automatically marked late.
+    </p>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Date <span style="color:var(--red)">*</span></label>
+        <input type="date" id="ctDate" />
+      </div>
+      <div class="form-group">
+        <label>Call Time <span style="color:var(--red)">*</span></label>
+        <input type="time" id="ctTime" />
+      </div>
+      <div class="form-group form-full">
+        <label>Label <span style="color:var(--text-muted);font-size:10px">(optional)</span></label>
+        <input type="text" id="ctLabel" placeholder="e.g. Regular shift, Event day…" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('ctModal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCallTime()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px"><polyline points="20 6 9 17 4 12"/></svg>
+        Save Call Time
+      </button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

@@ -661,6 +661,14 @@
       <div id="punchStatusText" style="margin-top:20px;font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">
         Ready to start your shift.
       </div>
+
+      <!-- Call time indicator — shown when a call time is set for today -->
+      <div id="callTimeIndicator" style="display:none;margin-top:12px;display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:99px;background:rgba(251,146,60,0.08);border:1px solid rgba(251,146,60,0.2);">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);">
+          Call time: <strong id="callTimeDisplay">—</strong>
+        </span>
+      </div>
     </div>
 
     <!-- DTR Log -->
@@ -1099,6 +1107,9 @@ async function loadDtrLogs() {
     return;
   }
 
+  // Load today's call time to show the indicator
+  loadTodayCallTime();
+
   setLoading(true);
   try {
     // Fetch last 30 days of logs for this employee
@@ -1189,6 +1200,30 @@ function updatePunchButton() {
   }
 }
 
+// ── CALL TIME INDICATOR ──────────────────────────────────────────────────────
+async function loadTodayCallTime() {
+  const indicator = document.getElementById('callTimeIndicator');
+  const display   = document.getElementById('callTimeDisplay');
+  if (!indicator || !display) return;
+
+  try {
+    const today   = new Date().toISOString().slice(0, 10);
+    const CTURL   = `${SUPABASE_URL}/rest/v1/call_times`;
+    const rows    = await sbGet(`${CTURL}?date=eq.${today}&select=call_time,label&limit=1`);
+    if (rows.length) {
+      const t = rows[0].call_time;
+      const d = new Date('1970-01-01T' + (t.length <= 8 ? t : t.slice(11,19)));
+      const fmt = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      display.textContent     = fmt + (rows[0].label ? ` · ${rows[0].label}` : '');
+      indicator.style.display = 'inline-flex';
+    } else {
+      indicator.style.display = 'none';
+    }
+  } catch (_) {
+    indicator.style.display = 'none';
+  }
+}
+
 async function handlePunch() {
   if (!empRecord) {
     toast('Employee record not found. Contact your admin.', 'error');
@@ -1265,20 +1300,36 @@ async function handlePunch() {
         return;
       }
 
+      // ── Check call time for today to auto-detect lateness ──
+      let isLate = false;
+      try {
+        const CALL_TIMES_URL = `${SUPABASE_URL}/rest/v1/call_times`;
+        const ctRows = await sbGet(`${CALL_TIMES_URL}?date=eq.${today}&select=call_time&limit=1`);
+        if (ctRows.length) {
+          isLate = nowTime > ctRows[0].call_time;
+        }
+      } catch (_) { /* table may not exist yet — not late by default */ }
+
       const newLog = {
         employee_id: empRecord.id,
         date:        today,
         time_in:     nowTime,
         time_out:    null,
-        is_late:     false, // Server/admin can flag this later
+        is_late:     isLate,
       };
 
       const [saved] = await sbPost(DTR_URL, newLog);
       todayLog  = saved;
       isTimedIn = true;
       updatePunchButton();
-      status.innerHTML = `Timed in at <strong style="color:var(--text)">${display}</strong>. Have a great shift!`;
-      toast('Time in recorded.', 'success');
+
+      if (isLate) {
+        status.innerHTML = `Timed in at <strong style="color:var(--text)">${display}</strong> — <span style="color:var(--orange);font-weight:600;">you're late today.</span>`;
+        toast('Time in recorded — you are marked late.', 'info');
+      } else {
+        status.innerHTML = `Timed in at <strong style="color:var(--text)">${display}</strong>. Have a great shift!`;
+        toast('Time in recorded.', 'success');
+      }
 
     } else {
       // ── TIME OUT ──
