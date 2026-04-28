@@ -123,6 +123,16 @@ async function loadAdminStats() {
 // ═══════════════════════════════════════════
 
 async function loadEmployeeData(displayName) {
+  // Always show the punch CTA immediately — default "Not yet timed in" state.
+  // Ensures every user sees the button regardless of whether they have
+  // a matching employee record in Supabase yet.
+  const ctaEl  = document.getElementById('empPunchCta');
+  const ctaBtn = document.getElementById('empPunchCtaBtn');
+  if (ctaEl) {
+    ctaEl.style.display = 'block';
+    if (ctaBtn) ctaBtn.href = 'profile.html?tab=dtr';
+  }
+
   setLoading(true);
   try {
     // Try to find the employee record by matching display name
@@ -138,14 +148,12 @@ async function loadEmployeeData(displayName) {
         loadEmpDtr(emp.id, emp.name),
       ]);
     } else {
-      // Employee not yet in payroll roster
+      // Employee not yet in payroll roster — show empty state but CTA stays visible
       document.getElementById('empPayslipList').innerHTML = emptyState('No payslip records found yet.');
-      document.getElementById('empDtrList').innerHTML     = emptyState('No attendance records found yet.');
     }
   } catch (err) {
     console.error(err);
     document.getElementById('empPayslipList').innerHTML = emptyState('Could not load payslips.');
-    document.getElementById('empDtrList').innerHTML     = emptyState('Could not load records.');
   } finally {
     setLoading(false);
   }
@@ -274,13 +282,33 @@ async function loadAdminAttendance(displayName) {
   const DTR_URL = `${SUPABASE_URL}/rest/v1/dtr_logs`;
   const EMP_URL = `${SUPABASE_URL}/rest/v1/employees`;
 
+  const ctaEl    = document.getElementById('adminPunchCta');
+  const ctaInner = document.getElementById('adminPunchCtaInner');
+  const ctaLabel = document.getElementById('adminPunchCtaLabel');
+  const ctaSub   = document.getElementById('adminPunchCtaSub');
+  const ctaBtn   = document.getElementById('adminPunchCtaBtn');
+
+  // Always show the CTA — default state while we load
+  if (ctaEl) {
+    ctaEl.style.display = 'block';
+    ctaBtn.href = 'profile.html?tab=dtr';
+    ctaLabel.textContent  = 'Not yet timed in';
+    ctaLabel.style.color  = 'var(--green)';
+    ctaSub.textContent    = 'Go to Attendance to clock in today';
+    ctaBtn.innerHTML      = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg> Time In`;
+    ctaBtn.style.background = 'linear-gradient(135deg,#065f46,#34d399)';
+    ctaBtn.style.boxShadow  = '0 2px 10px rgba(52,211,153,0.25)';
+  }
+
   try {
     // Find matching employee record
     const employees = await dbGet(
       `${EMP_URL}?select=id,name&name=ilike.${encodeURIComponent('%' + displayName + '%')}`
     );
     const emp = employees[0] || null;
-    if (!emp) return; // No employee record — hide card gracefully
+
+    // If no employee record exists yet, leave the default CTA shown above and bail
+    if (!emp) return;
 
     // Fetch recent DTR logs
     const dtrRows = await dbGet(
@@ -290,29 +318,14 @@ async function loadAdminAttendance(displayName) {
     // Expose to modal (shared with employee modal)
     window._dtrAllRows = dtrRows;
 
-    // Drive the punch CTA
-    const today    = new Date().toISOString().slice(0, 10);
-    const todayLog = dtrRows.find(r => r.date === today) || null;
+    // Refine CTA based on today's actual log
+    if (!ctaEl) return;
+    const today     = new Date().toISOString().slice(0, 10);
+    const todayLog  = dtrRows.find(r => r.date === today) || null;
     const isTimedIn = todayLog && !todayLog.time_out;
 
-    const ctaEl    = document.getElementById('adminPunchCta');
-    const ctaInner = document.getElementById('adminPunchCtaInner');
-    const ctaLabel = document.getElementById('adminPunchCtaLabel');
-    const ctaSub   = document.getElementById('adminPunchCtaSub');
-    const ctaBtn   = document.getElementById('adminPunchCtaBtn');
-
-    if (!ctaEl) return;
-    ctaEl.style.display = 'block';
-    ctaBtn.href = 'profile.html?tab=dtr';
-
     if (!todayLog) {
-      ctaInner.className    = '';
-      ctaLabel.textContent  = 'Not yet timed in';
-      ctaLabel.style.color  = 'var(--green)';
-      ctaSub.textContent    = 'Go to Attendance to clock in today';
-      ctaBtn.innerHTML      = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg> Time In`;
-      ctaBtn.style.background = 'linear-gradient(135deg,#065f46,#34d399)';
-      ctaBtn.style.boxShadow  = '0 2px 10px rgba(52,211,153,0.25)';
+      // Already set to default "Not yet timed in" above — nothing more to do
     } else if (isTimedIn) {
       const tIn = _fmtTimeSimple(todayLog.time_in);
       ctaInner.style.background = 'rgba(251,146,60,0.06)';
@@ -336,6 +349,7 @@ async function loadAdminAttendance(displayName) {
 
   } catch (err) {
     console.warn('[admin attendance]', err);
+    // CTA is already visible with default state — no further action needed
   }
 }
 
