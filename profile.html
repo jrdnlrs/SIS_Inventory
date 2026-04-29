@@ -1034,10 +1034,7 @@ function initClock() {
 // Hardcoded fallback — used if Supabase allowed_ips table is unavailable.
 // Prefixes: match first N segments. Full addresses: exact match.
 const OFFICE_IP_FALLBACK = [
-  { type: 'prefix', value: '192.168.110',      label: 'LAN (both floors)' },
-  { type: 'prefix', value: '192.168.254',      label: 'WiFi (both floors)' },
-  { type: 'prefix', value: '2001:fd8:cc05:8f00', label: 'WiFi IPv6 (both floors)' },
-  { type: 'prefix', value: '180.190.174', label: 'Office Public IP' },
+  { type: 'prefix', value: '112.203.168', label: 'Office Public IP' },
 ];
 
 const ALLOWED_IPS_URL = `${SUPABASE_URL}/rest/v1/allowed_ips`;
