@@ -1148,9 +1148,20 @@ CREATE POLICY "Anon delete"  ON call_times FOR DELETE USING (true);</code>
 
   async function loadSuperAdminEmployeeRecord() {
     try {
-      const name = encodeURIComponent('%' + (currentUser.display_name || currentUser.username) + '%');
-      const rows = await sbGet(`${EMP_URL}?name=ilike.${name}&select=*&limit=1`);
+      // Search by username instead of name
+      const rows = await sbGet(`${EMP_URL}?username=eq.${currentUser.username}&select=*&limit=1`);
       saEmpRecord = rows && rows.length ? rows[0] : null;
+
+      // Sync session name if it changed in DB
+      if (saEmpRecord && saEmpRecord.name !== currentUser.display_name) {
+        currentUser.display_name = saEmpRecord.name;
+        sessionStorage.setItem('stockdesk_session', JSON.stringify(currentUser));
+        
+        // Update header chip immediately
+        const chip = document.getElementById('userChipName');
+        if (chip) chip.textContent = saEmpRecord.name;
+      }
+
       if (!saEmpRecord) document.getElementById('punchStatusText').innerHTML = `<span style="color:var(--accent-bright)">No employee record matched to log attendance.</span>`;
     } catch (e) { console.warn("Could not load employee record."); }
   }

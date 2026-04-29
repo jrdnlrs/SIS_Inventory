@@ -122,10 +122,45 @@ async function loadAdminStats() {
 //  EMPLOYEE VIEW
 // ═══════════════════════════════════════════
 
-async function loadEmployeeData(displayName) {
-  // Always show the punch CTA immediately — default "Not yet timed in" state.
-  // Ensures every user sees the button regardless of whether they have
-  // a matching employee record in Supabase yet.
+// async function loadEmployeeData(displayName) {
+//   // Always show the punch CTA immediately — default "Not yet timed in" state.
+//   // Ensures every user sees the button regardless of whether they have
+//   // a matching employee record in Supabase yet.
+//   const ctaEl  = document.getElementById('empPunchCta');
+//   const ctaBtn = document.getElementById('empPunchCtaBtn');
+//   if (ctaEl) {
+//     ctaEl.style.display = 'block';
+//     if (ctaBtn) ctaBtn.href = 'profile.html?tab=dtr';
+//   }
+
+//   setLoading(true);
+//   try {
+//     // Try to find the employee record by matching display name
+//     const employees = await dbGet(
+//       `${SUPABASE_URL}/rest/v1/employees?select=id,name&name=ilike.${encodeURIComponent('%' + displayName + '%')}`
+//     );
+
+//     const emp = employees[0] || null;
+
+//     if (emp) {
+//       await Promise.all([
+//         loadEmpPayslips(emp.id, emp.name),
+//         loadEmpDtr(emp.id, emp.name),
+//       ]);
+//     } else {
+//       // Employee not yet in payroll roster — show empty state but CTA stays visible
+//       document.getElementById('empPayslipList').innerHTML = emptyState('No payslip records found yet.');
+//     }
+//   } catch (err) {
+//     console.error(err);
+//     document.getElementById('empPayslipList').innerHTML = emptyState('Could not load payslips.');
+//   } finally {
+//     setLoading(false);
+//   }
+// }
+
+// Change the parameter from displayName to session
+async function loadEmployeeData(session) {
   const ctaEl  = document.getElementById('empPunchCta');
   const ctaBtn = document.getElementById('empPunchCtaBtn');
   if (ctaEl) {
@@ -135,20 +170,30 @@ async function loadEmployeeData(displayName) {
 
   setLoading(true);
   try {
-    // Try to find the employee record by matching display name
+    // Search by the immutable username instead of display name
     const employees = await dbGet(
-      `${SUPABASE_URL}/rest/v1/employees?select=id,name&name=ilike.${encodeURIComponent('%' + displayName + '%')}`
+      `${SUPABASE_URL}/rest/v1/employees?select=id,name&username=eq.${session.username}`
     );
 
     const emp = employees[0] || null;
 
     if (emp) {
+      // Sync session name if it changed in DB
+      if (emp.name !== session.display_name) {
+        session.display_name = emp.name;
+        sessionStorage.setItem('stockdesk_session', JSON.stringify(session));
+        // Force UI update immediately
+        const chip = document.getElementById('userChipName');
+        const hero = document.getElementById('empHeroName');
+        if (chip) chip.textContent = emp.name;
+        if (hero) hero.textContent = emp.name;
+      }
+
       await Promise.all([
         loadEmpPayslips(emp.id, emp.name),
         loadEmpDtr(emp.id, emp.name),
       ]);
     } else {
-      // Employee not yet in payroll roster — show empty state but CTA stays visible
       document.getElementById('empPayslipList').innerHTML = emptyState('No payslip records found yet.');
     }
   } catch (err) {
@@ -278,7 +323,7 @@ function emptyState(msg) {
 //  ADMIN ATTENDANCE CARD
 // ═══════════════════════════════════════════
 
-async function loadAdminAttendance(displayName) {
+async function loadAdminAttendance(session) {
   const DTR_URL = `${SUPABASE_URL}/rest/v1/dtr_logs`;
   const EMP_URL = `${SUPABASE_URL}/rest/v1/employees`;
 
@@ -301,14 +346,24 @@ async function loadAdminAttendance(displayName) {
   }
 
   try {
-    // Find matching employee record
+    // Search by username
     const employees = await dbGet(
-      `${EMP_URL}?select=id,name&name=ilike.${encodeURIComponent('%' + displayName + '%')}`
+      `${EMP_URL}?select=id,name&username=eq.${session.username}`
     );
     const emp = employees[0] || null;
 
-    // If no employee record exists yet, leave the default CTA shown above and bail
     if (!emp) return;
+
+    // Sync session name if it changed in DB
+    if (emp.name !== session.display_name) {
+      session.display_name = emp.name;
+      sessionStorage.setItem('stockdesk_session', JSON.stringify(session));
+      // Force UI update immediately
+      const chip = document.getElementById('userChipName');
+      const greet = document.getElementById('adminGreeting');
+      if (chip) chip.textContent = emp.name;
+      if (greet) greet.textContent = `${greeting()}, ${emp.name.split(' ')[0]} 👋`;
+    }
 
     // Fetch recent DTR logs
     const dtrRows = await dbGet(
@@ -395,7 +450,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('adminGreeting').textContent = `${greeting()}, ${name.split(' ')[0]} 👋`;
     document.getElementById('hubDate').textContent = formatDate();
     await loadAdminStats();
-    await loadAdminAttendance(name);
+    await loadAdminAttendance(session);
 
   } else {
     // ── Employee view ──
@@ -410,6 +465,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (heroInit) heroInit.textContent = initials;
 
     startSlideshow();
-    await loadEmployeeData(name);
+    await loadEmployeeData(session);
   }
 });
