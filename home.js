@@ -421,6 +421,18 @@ document.addEventListener('DOMContentLoaded', async function () {
   const session = AUTH.requireAuth();
   if (!session) return;
 
+  // ── PRE-SYNC NAME FROM DB BEFORE RENDERING UI ──
+  try {
+    const syncRes = await dbGet(`${SUPABASE_URL}/rest/v1/employees?select=name&username=eq.${session.username}&limit=1`);
+    if (syncRes && syncRes.length > 0 && syncRes[0].name !== session.display_name) {
+      session.display_name = syncRes[0].name;
+      sessionStorage.setItem('stockdesk_session', JSON.stringify(session));
+    }
+  } catch (e) { 
+    console.warn("Pre-sync failed, using session name."); 
+  }
+  // ───────────────────────────────────────────────
+
   const isSuperAdmin = session.role === 'superadmin';
   const isAdmin      = session.role === 'admin' || isSuperAdmin;
   const name         = session.display_name || session.username;
