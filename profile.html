@@ -846,11 +846,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
+// async function loadEmployeeRecord() {
+//   try {
+//     const name = encodeURIComponent('%' + (session.display_name || session.username) + '%');
+//     const rows = await sbGet(`${EMP_URL}?name=ilike.${name}&select=*&limit=1`);
+//     empRecord  = rows && rows.length ? rows[0] : null;
+//   } catch (e) {
+//     console.warn('[profile] could not load employee record:', e.message);
+//     empRecord = null;
+//   }
+// }
+
 async function loadEmployeeRecord() {
   try {
-    const name = encodeURIComponent('%' + (session.display_name || session.username) + '%');
-    const rows = await sbGet(`${EMP_URL}?name=ilike.${name}&select=*&limit=1`);
+    // 1. Search by the immutable username instead of the changeable display name
+    const username = session.username;
+    const rows = await sbGet(`${EMP_URL}?username=eq.${username}&select=*&limit=1`);
     empRecord  = rows && rows.length ? rows[0] : null;
+
+    // 2. If we found them, override the stale users.json name with the fresh Supabase name!
+    if (empRecord && empRecord.name) {
+      session.display_name = empRecord.name;
+      sessionStorage.setItem('stockdesk_session', JSON.stringify(session));
+      
+      // Update the UI chips immediately
+      const chipNameEl = document.getElementById('userChipName');
+      if (chipNameEl) chipNameEl.textContent = empRecord.name;
+    }
   } catch (e) {
     console.warn('[profile] could not load employee record:', e.message);
     empRecord = null;
