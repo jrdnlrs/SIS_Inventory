@@ -663,9 +663,9 @@
       </div>
 
       <!-- Call time indicator — shown when a call time is set for today -->
-      <div id="callTimeIndicator" style="display:none;margin-top:12px;display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:99px;background:rgba(251,146,60,0.08);border:1px solid rgba(251,146,60,0.2);">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);">
+      <div id="callTimeIndicator" style="display:none;margin-top:12px;display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:99px;background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.2);">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);">
           Call time: <strong id="callTimeDisplay">—</strong>
         </span>
       </div>
@@ -1153,13 +1153,13 @@ function renderDtrLogs(rows) {
     const hours   = (r.time_in && r.time_out) ? calcHours(r.time_in, r.time_out) : '—';
     const isLate  = r.is_late;
     const statusBadge = r.time_out
-      ? (isLate ? `<span class="badge badge-low">Late</span>` : `<span class="badge badge-ok">Present</span>`)
+      ? (isLate ? `<span class="badge badge-out">Late</span>` : `<span class="badge badge-ok">Present</span>`)
       : `<span class="badge badge-spare">In Progress</span>`;
 
     return `
       <tr>
         <td style="font-weight:600">${formatDateShort(r.date)}</td>
-        <td class="mono" style="color:${isLate ? 'var(--orange)' : 'var(--text)'}">${timeIn}</td>
+        <td class="mono" style="color:${isLate ? 'var(--red)' : 'var(--text)'}">${timeIn}</td>
         <td class="mono" style="color:var(--text)">${timeOut}</td>
         <td class="mono" style="color:var(--text-muted)">${hours}</td>
         <td>${statusBadge}</td>
@@ -1282,7 +1282,7 @@ async function handlePunch() {
   } catch (ipErr) {
     // If the IP check itself fails, block as a safety measure
     console.error('[ip-guard] check failed:', ipErr);
-    status.innerHTML = `<span style="color:var(--orange)">Network check failed. Please try again.</span>`;
+    status.innerHTML = `<span style="color:var(--red)">Network check failed. Please try again.</span>`;
     toast('Could not verify network. Please try again.', 'error');
     btn.disabled = false;
     setLoading(false);
@@ -1324,7 +1324,7 @@ async function handlePunch() {
       updatePunchButton();
 
       if (isLate) {
-        status.innerHTML = `Timed in at <strong style="color:var(--text)">${display}</strong> — <span style="color:var(--orange);font-weight:600;">you're late today.</span>`;
+        status.innerHTML = `Timed in at <strong style="color:var(--text)">${display}</strong> — <span style="color:var(--red);font-weight:600;">you're late today.</span>`;
         toast('Time in recorded — you are marked late.', 'info');
       } else {
         status.innerHTML = `Timed in at <strong style="color:var(--text)">${display}</strong>. Have a great shift!`;

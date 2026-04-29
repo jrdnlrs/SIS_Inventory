@@ -548,18 +548,18 @@ function renderDtrModal() {
       ? 'rgba(251,146,60,0.1)'
       : r.is_late ? 'rgba(251,146,60,0.1)' : 'rgba(52,211,153,0.1)';
     const statusTxt = !r.time_out ? 'In Progress' : r.is_late ? 'Late' : 'Present';
-    const statusClr = !r.time_out ? 'var(--orange)' : r.is_late ? 'var(--orange)' : 'var(--green)';
+    const statusClr = !r.time_out ? 'var(--green)' : r.is_late ? 'var(--red)' : 'var(--green)';
 
     return `<tr style="border-bottom:1px solid rgba(30,45,69,0.8);transition:background 0.1s;" onmouseover="this.style.background='rgba(59,130,246,0.04)'" onmouseout="this.style.background=''">
       <td style="padding:13px 24px;font-size:13px;font-weight:600;">
         ${_fmtDate(r.date)}
         ${isToday ? `<span style="font-size:9px;font-family:'JetBrains Mono',monospace;background:rgba(59,130,246,0.12);color:var(--accent-bright);padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:middle">TODAY</span>` : ''}
       </td>
-      <td style="padding:13px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:${r.is_late ? 'var(--orange)' : 'var(--text)'};">${timeIn}</td>
+      <td style="padding:13px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:${r.is_late ? 'var(--red)' : 'var(--text)'};">${timeIn}</td>
       <td style="padding:13px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);">${timeOut}</td>
       <td style="padding:13px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);">${dur}</td>
       <td style="padding:13px 24px 13px 16px;">
-        <span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600;font-family:'Barlow',sans-serif;text-transform:uppercase;letter-spacing:0.5px;background:${statusCol};color:${statusClr};border:1px solid ${statusClr.replace(')', ',0.25)').replace('var(','rgba(').replace('--orange','251,146,60').replace('--green','52,211,153')};">
+        <span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600;font-family:'Barlow',sans-serif;text-transform:uppercase;letter-spacing:0.5px;background:${statusCol};color:${statusClr};border:1px solid ${statusClr.replace(')', ',0.25)').replace('var(','rgba(').replace('--red','251,146,60').replace('--green','52,211,153')};">
           ${statusTxt}
         </span>
       </td>
