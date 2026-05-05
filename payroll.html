@@ -282,13 +282,13 @@
           <thead>
             <tr>
               <th>Employee</th>
-              <th>Attendance / Event</th>
+              <th>Days / Events</th>
               <th>Rate</th>
               <th>Gross Pay</th>
               <th>SSS</th>
               <th>PhilHealth</th>
               <th>Pag-IBIG</th>
-              <th>Tax</th>
+              <th>Tax / Late Ded</th>
               <th>Net Pay</th>
               <th></th>
             </tr>
@@ -388,10 +388,10 @@
 
       <!-- Event Rate (Event-based) -->
       <div class="form-group" id="rateEventGroup" style="display:none">
-        <label>Default Event Pay (₱) <span style="color:var(--red)">*</span></label>
-        <input id="efEventRate" type="number" min="0" placeholder="e.g. 3000" />
+        <label>Event Day Rate (₱)</label>
+        <input id="efEventRate" type="number" min="0" placeholder="2000" value="2000" />
         <div style="font-size:10px;color:var(--text-muted);margin-top:4px;font-family:'JetBrains Mono',monospace">
-          Can be overridden per event in the DTR
+          Fixed ₱2,000/day · Late deductions computed per minute (÷ 480 min/day)
         </div>
       </div>
 
