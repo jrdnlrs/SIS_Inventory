@@ -127,6 +127,8 @@ function switchPayType(type, btn) {
   }
 
   // Clear preview when switching types
+  eventDtrRows = [];
+  dtrRows      = [];
   document.getElementById('dtrPreview').style.display        = 'none';
   document.getElementById('payrollSummaryBar').style.display = 'none';
 }
@@ -149,7 +151,199 @@ function toggleGovContrib(type, checkbox) {
   // Visual feedback only — actual toggle state is read at compute time
 }
 
-// ── DTR SOURCE TOGGLE ──────────────────────
+// ═══════════════════════════════════════════
+//  EVENT SHIFT SCHEDULE
+//  Per-day shift start times — used to compute
+//  minutes late for event employees.
+//  eventShiftDays = [{ date: 'YYYY-MM-DD', shiftStart: 'HH:MM', shiftStartMin: 480 }]
+// ═══════════════════════════════════════════
+
+let eventShiftDays = []; // array of { id, date, shiftStart }
+
+function addEventShiftDay() {
+  const month = document.getElementById('payMonth').value;
+  // Default date: today or first of pay month
+  const defaultDate = month
+    ? `${month}-01`
+    : new Date().toISOString().slice(0, 10);
+
+  const id = uid();
+  eventShiftDays.push({ id, date: defaultDate, shiftStart: '08:00' });
+  renderEventShiftSchedule();
+}
+
+function removeEventShiftDay(id) {
+  eventShiftDays = eventShiftDays.filter(d => d.id !== id);
+  renderEventShiftSchedule();
+}
+
+function updateEventShiftDay(id, field, value) {
+  const day = eventShiftDays.find(d => d.id === id);
+  if (day) day[field] = value;
+}
+
+function renderEventShiftSchedule() {
+  const container = document.getElementById('eventShiftSchedule');
+  const empty     = document.getElementById('eventShiftEmpty');
+
+  if (!eventShiftDays.length) {
+    container.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+
+  empty.style.display = 'none';
+  container.innerHTML = eventShiftDays.map(d => `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.8px;">Event Date</div>
+        <input type="date" value="${d.date}"
+          onchange="updateEventShiftDay('${d.id}', 'date', this.value)"
+          style="padding:7px 11px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;"
+          onfocus="this.style.borderColor='#a78bfa'" onblur="this.style.borderColor='var(--border)'" />
+      </div>
+      <div>
+        <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.8px;">Shift Start</div>
+        <input type="time" value="${d.shiftStart}"
+          onchange="updateEventShiftDay('${d.id}', 'shiftStart', this.value)"
+          style="padding:7px 11px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;"
+          onfocus="this.style.borderColor='#a78bfa'" onblur="this.style.borderColor='var(--border)'" />
+      </div>
+      <div style="align-self:flex-end;padding-bottom:2px;">
+        <button class="btn btn-danger" style="padding:7px 10px;" onclick="removeEventShiftDay('${d.id}')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>`).join('');
+}
+
+/**
+ * Get shift start in minutes for a given date string 'YYYY-MM-DD'.
+ * Falls back to 8:00 AM (480) if date not in schedule.
+ */
+function getShiftStartMin(dateStr) {
+  const day = eventShiftDays.find(d => d.date === dateStr);
+  if (!day) return 8 * 60; // default 8:00 AM
+  const [hh, mm] = (day.shiftStart || '08:00').split(':').map(Number);
+  return hh * 60 + (mm || 0);
+}
+
+// ── EVENT DTR SOURCE TOGGLE ────────────────
+function switchEventDtrSource(src) {
+  const livePanel = document.getElementById('evtLiveDtrPanel');
+  const filePanel = document.getElementById('evtFileDtrPanel');
+  const btnLive   = document.getElementById('evtSrcLive');
+  const btnFile   = document.getElementById('evtSrcFile');
+
+  if (src === 'live') {
+    livePanel.style.display = 'flex';
+    filePanel.style.display = 'none';
+    btnLive.classList.add('active');
+    btnFile.classList.remove('active');
+  } else {
+    livePanel.style.display = 'none';
+    filePanel.style.display = 'flex';
+    btnFile.classList.add('active');
+    btnLive.classList.remove('active');
+  }
+
+  eventDtrRows = [];
+  document.getElementById('dtrPreview').style.display        = 'none';
+  document.getElementById('payrollSummaryBar').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════
+//  LIVE EVENT DTR LOADER
+//  Pulls dtr_logs for the event dates in the
+//  shift schedule, computes minutes late per
+//  employee per day using time_in vs shift start.
+// ═══════════════════════════════════════════
+
+async function loadLiveEventDtr() {
+  if (!eventShiftDays.length) {
+    toast('Add at least one event day to the shift schedule first.', 'error');
+    return;
+  }
+
+  const dates = eventShiftDays.map(d => d.date).sort();
+  setLoading(true);
+
+  try {
+    const DTR_URL = `${SUPABASE_URL}/rest/v1/dtr_logs`;
+    // Fetch logs for all event dates
+    const dateFilter = dates.map(d => `date=eq.${d}`).join('&');
+    const logs = await sbGet(
+      `${DTR_URL}?or=(${dates.map(d => `date.eq.${d}`).join(',')})&time_in=not.is.null&select=employee_id,date,time_in,time_out,is_late`
+    );
+
+    if (!logs.length) {
+      toast('No punch records found for the selected event dates.', 'error');
+      setLoading(false);
+      return;
+    }
+
+    // Group by employee_id → array of day records
+    const empMap = {}; // employee_id → [{ date, timeInMin, timeOutMin, minutesLate }]
+    logs.forEach(log => {
+      const shiftStartMin = getShiftStartMin(log.date);
+      const timeInMin     = parseTimeToMinutes(log.time_in);
+      const timeOutMin    = parseTimeToMinutes(log.time_out);
+      const minutesLate   = (timeInMin !== null && timeInMin > shiftStartMin)
+        ? timeInMin - shiftStartMin
+        : 0;
+
+      if (!empMap[log.employee_id]) empMap[log.employee_id] = [];
+      empMap[log.employee_id].push({
+        date:        log.date,
+        timeInMin,
+        timeOutMin,
+        minutesLate,
+        shiftStartMin,
+        status:      minutesLate > 0 ? 'Late' : 'Present',
+        source:      'live',
+      });
+    });
+
+    const idToEmp = {};
+    employees.forEach(e => { idToEmp[e.id] = e; });
+
+    eventDtrRows = [];
+    const unmatchedIds = [];
+
+    Object.entries(empMap).forEach(([empId, days]) => {
+      const emp = idToEmp[empId];
+      if (!emp) { unmatchedIds.push(empId); return; }
+      eventDtrRows.push({
+        name:   emp.name,
+        role:   emp.position || '',
+        days,
+        source: 'live',
+      });
+    });
+
+    if (!eventDtrRows.length) {
+      toast('Punch records found but no employees matched the roster.', 'error');
+      setLoading(false);
+      return;
+    }
+
+    renderDtrPreview('event');
+    document.getElementById('dtrPreview').style.display = 'block';
+
+    const msg = unmatchedIds.length
+      ? `Live event DTR loaded — ${eventDtrRows.length} employees. ${unmatchedIds.length} unmatched record(s).`
+      : `Live event DTR loaded — ${eventDtrRows.length} employees across ${dates.length} event day(s).`;
+    toast(msg, unmatchedIds.length ? 'info' : 'success');
+
+  } catch (err) {
+    console.error('[loadLiveEventDtr]', err);
+    toast('Failed to load live event DTR records. Check Supabase connection.', 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── DTR SOURCE TOGGLE (Regular) ────────────
 function switchDtrSource(src) {
   const livePanel = document.getElementById('liveDtrPanel');
   const filePanel = document.getElementById('fileDtrPanel');
@@ -293,28 +487,31 @@ function computePayForEmployee(emp, daysPresent, workingDays) {
 // ═══════════════════════════════════════════
 
 /**
- * Compute pay for one event DTR row.
- * @param {object} row — { name, role, days: [{timeIn, timeOut, workingHours, status, minutesLate}] }
- * @returns {{ gross, lateDeduction, net, totalDays, lateDays }}
+ * Compute event pay for one employee.
+ * days[] each have: { date, timeInMin, minutesLate, status }
+ * ₱2,000/day · late deduction = minutesLate × (2000 ÷ 480)
+ * No gov contributions or tax.
  */
 function computeEventPay(row) {
   let gross         = 0;
   let lateDeduction = 0;
   let lateDays      = 0;
+  let presentDays   = 0;
 
   row.days.forEach(d => {
-    const status = (d.status || '').trim().toUpperCase();
-    if (status === 'PRESENT') {
-      gross += EVENT_DAY_RATE;
-    } else if (status === 'LATE') {
-      // Deduct: minutes late × rate per minute
-      const minLate = d.minutesLate || 0;
-      const ded     = Math.round(minLate * EVENT_RATE_PER_MIN * 100) / 100;
-      gross        += EVENT_DAY_RATE;
+    const status = (d.status || '').trim();
+    const isPresentOrLate = /present|late/i.test(status);
+    if (!isPresentOrLate) return; // absent = no pay
+
+    gross += EVENT_DAY_RATE;
+    presentDays++;
+
+    const minLate = d.minutesLate || 0;
+    if (minLate > 0) {
+      const ded = Math.round(minLate * EVENT_RATE_PER_MIN * 100) / 100;
       lateDeduction += ded;
       lateDays++;
     }
-    // Absent / empty → no pay for that day
   });
 
   const net = Math.max(0, Math.round((gross - lateDeduction) * 100) / 100);
@@ -322,10 +519,12 @@ function computeEventPay(row) {
     gross:         Math.round(gross * 100) / 100,
     lateDeduction: Math.round(lateDeduction * 100) / 100,
     net,
-    totalDays:     row.days.filter(d => ['PRESENT','LATE'].includes((d.status||'').toUpperCase())).length,
+    totalDays:     presentDays,
     lateDays,
+    daysPresent:   presentDays,
+    workingDays:   presentDays,
     sss: 0, philhealth: 0, pagibig: 0, tax: 0,
-    totalDed: lateDeduction,
+    totalDed:      Math.round(lateDeduction * 100) / 100,
   };
 }
 
@@ -580,17 +779,12 @@ function onDtrFileChosen(e) {
 }
 
 // ═══════════════════════════════════════════
-//  EVENT DTR — EXCEL UPLOAD
+//  EVENT DTR — EXCEL UPLOAD (fallback)
 //
-//  Expected columns (flexible header detection):
-//  Name | Role | Time In | Time Out | Working Hours | Status
-//
-//  One row per employee per day (multiple rows per employee OK).
-//  Status: Present | Late
-//  If Late: minutesLate = timeIn - expectedStart (8:00 AM)
+//  Columns: Name | Role | Date | Time In | Time Out | Working Hours | Status
+//  Minutes late = actual Time In − shift start for that date (from eventShiftDays).
+//  Falls back to 8:00 AM if date not in shift schedule.
 // ═══════════════════════════════════════════
-
-const EVENT_EXPECTED_START = 8 * 60; // 8:00 AM in minutes
 
 function onEventDtrFileChosen(e) {
   const file = e.target.files[0];
@@ -599,8 +793,8 @@ function onEventDtrFileChosen(e) {
   const reader = new FileReader();
   reader.onload = function (evt) {
     try {
-      const wb   = XLSX.read(evt.target.result, { type: 'binary', cellDates: false });
-      const empMap = {}; // normalizedKey → { name, role, days[] }
+      const wb     = XLSX.read(evt.target.result, { type: 'binary', cellDates: false });
+      const empMap = {}; // normalizedKey → { name, role, days[], source }
 
       wb.SheetNames.forEach(sheetName => {
         const ws = wb.Sheets[sheetName];
@@ -612,27 +806,26 @@ function onEventDtrFileChosen(e) {
         let headerIdx = -1;
         for (let i = 0; i < Math.min(10, rows.length); i++) {
           const r = rows[i] || [];
-          const hasName   = r.some(v => typeof v === 'string' && /name/i.test(v));
-          const hasStatus = r.some(v => typeof v === 'string' && /status/i.test(v));
-          if (hasName && hasStatus) { headerIdx = i; break; }
+          const hasName = r.some(v => typeof v === 'string' && /name/i.test(v));
+          const hasTime = r.some(v => typeof v === 'string' && /time|status/i.test(v));
+          if (hasName && hasTime) { headerIdx = i; break; }
         }
         if (headerIdx === -1) return;
 
         const hdr = rows[headerIdx] || [];
-
-        // Detect column indices
         const col = (keywords) => hdr.findIndex(v =>
           typeof v === 'string' && keywords.some(kw => v.toLowerCase().includes(kw))
         );
 
         const NC  = col(['employee name', 'name']);
         const RC  = col(['role', 'position']);
-        const TIC = col(['time in', 'timein', 'in']);
-        const TOC = col(['time out', 'timeout', 'out']);
-        const WHC = col(['working hours', 'hours', 'wh']);
+        const DC  = col(['date']);
+        const TIC = col(['time in', 'timein', 'time_in']);
+        const TOC = col(['time out', 'timeout', 'time_out']);
+        const WHC = col(['working hours', 'hours']);
         const SC  = col(['status']);
 
-        if (NC === -1 || SC === -1) return; // skip sheet without required cols
+        if (NC === -1) return;
 
         for (let i = headerIdx + 1; i < rows.length; i++) {
           const row = rows[i];
@@ -643,46 +836,66 @@ function onEventDtrFileChosen(e) {
           const trimmed = String(rawName).trim();
           if (!trimmed || /^total/i.test(trimmed)) continue;
 
-          const name   = trimmed.replace(/\s*\*+\s*$/, '').replace(/\s+/g, ' ').trim();
+          const name = trimmed.replace(/\s*\*+\s*$/, '').replace(/\s+/g, ' ').trim();
           if (!name) continue;
 
-          const role   = RC !== -1 && row[RC] ? String(row[RC]).trim() : '';
-          const rawSt  = row[SC];
-          const status = rawSt ? String(rawSt).trim() : '';
-          if (!status) continue;
+          const role = RC !== -1 && row[RC] ? String(row[RC]).trim() : '';
 
-          // Parse time in to compute minutes late
+          // Parse date — Excel serial or string
+          let dateStr = sheetName; // fallback: use sheet name as date label
+          if (DC !== -1 && row[DC] !== null) {
+            const rawDate = row[DC];
+            if (typeof rawDate === 'number') {
+              const d = new Date(Math.round((rawDate - 25569) * 86400 * 1000));
+              dateStr = d.toISOString().slice(0, 10);
+            } else if (typeof rawDate === 'string' && rawDate.trim()) {
+              const parsed = new Date(rawDate.trim());
+              if (!isNaN(parsed)) dateStr = parsed.toISOString().slice(0, 10);
+            }
+          }
+
+          // Parse times
           const timeInMin  = TIC !== -1 ? parseTimeToMinutes(row[TIC]) : null;
           const timeOutMin = TOC !== -1 ? parseTimeToMinutes(row[TOC]) : null;
 
-          let minutesLate = 0;
-          if (/late/i.test(status) && timeInMin !== null) {
-            minutesLate = Math.max(0, timeInMin - EVENT_EXPECTED_START);
-          }
+          // Get shift start for this specific date from the schedule
+          const shiftStartMin = getShiftStartMin(dateStr);
 
-          // Working hours: prefer parsed, fallback to Time Out - Time In
+          // Minutes late = how many minutes after shift start did they clock in
+          const minutesLate = (timeInMin !== null && timeInMin > shiftStartMin)
+            ? timeInMin - shiftStartMin
+            : 0;
+
+          // Derive status from time if no status column
+          let status = SC !== -1 && row[SC] ? String(row[SC]).trim() : '';
+          if (!status && timeInMin !== null) {
+            status = minutesLate > 0 ? 'Late' : 'Present';
+          }
+          if (!status) continue;
+
+          // Working hours
           let workingHours = null;
-          if (WHC !== -1 && row[WHC] !== null && row[WHC] !== undefined) {
+          if (WHC !== -1 && row[WHC] !== null) {
             const rawWH = row[WHC];
-            if (typeof rawWH === 'number') {
-              workingHours = rawWH < 2 ? Math.round(rawWH * 24 * 100) / 100 : rawWH; // Excel fraction or plain hours
-            } else {
-              workingHours = parseFloat(String(rawWH)) || null;
-            }
+            workingHours = typeof rawWH === 'number'
+              ? (rawWH < 2 ? Math.round(rawWH * 24 * 100) / 100 : rawWH)
+              : (parseFloat(String(rawWH)) || null);
           } else if (timeInMin !== null && timeOutMin !== null && timeOutMin > timeInMin) {
             workingHours = Math.round((timeOutMin - timeInMin) / 60 * 100) / 100;
           }
 
           const key = normalizeName(name);
-          if (!empMap[key]) empMap[key] = { name, role, days: [] };
+          if (!empMap[key]) empMap[key] = { name, role, days: [], source: 'excel' };
 
           empMap[key].days.push({
-            sheet:        sheetName,
-            timeIn:       timeInMin,
-            timeOut:      timeOutMin,
+            date:         dateStr,
+            timeInMin,
+            timeOutMin,
             workingHours,
-            status,
             minutesLate,
+            shiftStartMin,
+            status,
+            source:       'excel',
           });
         }
       });
@@ -690,7 +903,7 @@ function onEventDtrFileChosen(e) {
       eventDtrRows = Object.values(empMap).filter(r => r.days.length > 0);
 
       if (!eventDtrRows.length) {
-        toast('No event employee rows found. Check that your file has Name, Status columns.', 'error');
+        toast('No event employee rows found. Check your file has Name and Time In columns.', 'error');
         return;
       }
 
@@ -709,12 +922,13 @@ function onEventDtrFileChosen(e) {
 // ── EVENT DTR TEMPLATE ────────────────────
 function downloadEventDtrTemplate() {
   const data = [
-    { 'Employee Name': 'Juan dela Cruz', 'Role': 'Operator',   'Time In': '8:00 AM',  'Time Out': '5:00 PM', 'Working Hours': 9, 'Status': 'Present' },
-    { 'Employee Name': 'Maria Santos',   'Role': 'Marshaller', 'Time In': '8:15 AM',  'Time Out': '5:00 PM', 'Working Hours': 8.75, 'Status': 'Late' },
-    { 'Employee Name': 'Pedro Reyes',    'Role': 'Operator',   'Time In': '8:00 AM',  'Time Out': '5:00 PM', 'Working Hours': 9, 'Status': 'Present' },
+    { 'Employee Name': 'Juan dela Cruz', 'Role': 'Operator',   'Date': '2025-06-10', 'Time In': '8:00 AM',  'Time Out': '5:00 PM', 'Working Hours': 9,    'Status': 'Present' },
+    { 'Employee Name': 'Maria Santos',   'Role': 'Marshaller', 'Date': '2025-06-10', 'Time In': '8:18 AM',  'Time Out': '5:00 PM', 'Working Hours': 8.7,  'Status': 'Late'    },
+    { 'Employee Name': 'Juan dela Cruz', 'Role': 'Operator',   'Date': '2025-06-11', 'Time In': '8:00 AM',  'Time Out': '5:00 PM', 'Working Hours': 9,    'Status': 'Present' },
+    { 'Employee Name': 'Pedro Reyes',    'Role': 'Caddy',      'Date': '2025-06-11', 'Time In': '8:05 AM',  'Time Out': '5:00 PM', 'Working Hours': 8.9,  'Status': 'Late'    },
   ];
   const ws = XLSX.utils.json_to_sheet(data);
-  ws['!cols'] = [{ wch: 22 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 10 }];
+  ws['!cols'] = [{ wch: 22 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 10 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Event DTR');
   XLSX.writeFile(wb, 'Event_DTR_Template.xlsx');
@@ -781,14 +995,20 @@ function renderDtrPreview(type) {
         ? `<span style="color:var(--green);font-size:11px">✓ ${emp.name}</span>`
         : `<span style="color:var(--red);font-size:11px">✗ No match — add to Employees tab</span>`;
 
-      const totalPresent = r.days.filter(d => /present|late/i.test(d.status)).length;
-      const totalLate    = r.days.filter(d => /late/i.test(d.status)).length;
+      const presentDays  = r.days.filter(d => /present|late/i.test(d.status));
+      const lateDays     = r.days.filter(d => /late/i.test(d.status));
       const totalMinLate = r.days.reduce((s, d) => s + (d.minutesLate || 0), 0);
+      const totalDed     = Math.round(totalMinLate * EVENT_RATE_PER_MIN * 100) / 100;
+      const estNet       = Math.max(0, presentDays.length * EVENT_DAY_RATE - totalDed);
 
-      // Preview pay estimate
-      const previewPay = totalPresent > 0
-        ? peso(Math.max(0, totalPresent * EVENT_DAY_RATE - totalMinLate * EVENT_RATE_PER_MIN))
-        : '—';
+      // Per-day breakdown (up to 5 shown)
+      const dayDots = presentDays.slice(0, 8).map(d => {
+        const isLate  = d.minutesLate > 0;
+        const color   = isLate ? 'var(--orange)' : 'var(--green)';
+        const timeStr = d.timeInMin !== null ? formatMinutes(d.timeInMin) : '—';
+        const tip     = `${d.date} · In: ${timeStr}${isLate ? ` · ${d.minutesLate}min late` : ''}`;
+        return `<span title="${tip}" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${color};margin:1px;cursor:help;"></span>`;
+      }).join('');
 
       return `
         <tr style="background:rgba(167,139,250,0.03)">
@@ -796,13 +1016,14 @@ function renderDtrPreview(type) {
             <strong>${r.name}</strong>
             ${r.role ? `<span style="font-size:11px;color:#a78bfa;margin-left:6px">${r.role}</span>` : ''}
             <br><span style="font-size:11px;display:block;margin-top:2px">${tag}</span>
+            <div style="margin-top:4px">${dayDots}</div>
           </td>
           <td class="mono">
-            ${totalPresent} day${totalPresent !== 1 ? 's' : ''}
-            ${totalLate ? `<br><span style="color:var(--orange);font-size:11px">${totalLate} late (${totalMinLate} min)</span>` : ''}
+            ${presentDays.length} day${presentDays.length !== 1 ? 's' : ''}
+            ${lateDays.length ? `<br><span style="color:var(--orange);font-size:11px">${lateDays.length} late · ${totalMinLate} min</span>` : ''}
           </td>
           <td class="mono" style="color:#a78bfa">₱2,000/day</td>
-          <td class="mono">${previewPay}</td>
+          <td class="mono">${presentDays.length > 0 ? peso(estNet) : '—'}</td>
           <td colspan="5" style="color:var(--text-dim);font-size:12px">— click Compute Payroll —</td>
         </tr>`;
     }).join('');
@@ -967,6 +1188,7 @@ function computePayroll() {
         tax: 0, totalDed: c.lateDeduction, net: c.net,
         daysPresent: c.totalDays, workingDays: c.totalDays,
         lateDeduction: c.lateDeduction, lateDays: c.lateDays,
+        event_days: r.days || [],
       }).replace(/'/g, '&#39;');
 
       tbody.innerHTML += `
@@ -1104,12 +1326,30 @@ function generatePayslipPDF(row, month, type = 'regular') {
   if (type === 'event') {
     if (row.lateDeduction > 0) {
       const totalMinLate = Math.round(row.lateDeduction / EVENT_RATE_PER_MIN);
-      doc.text(`Late Deduction (${totalMinLate} min × ₱${EVENT_RATE_PER_MIN.toFixed(4)})`, pad, y);
+      doc.text(`Late Deduction (${totalMinLate} min × ₱${EVENT_RATE_PER_MIN.toFixed(4)}/min)`, pad, y);
       doc.text(peso(row.lateDeduction), W - pad, y, { align: 'right' });
       y += 8;
+      // Show per-day breakdown if available
+      if (row.event_days && row.event_days.length > 0) {
+        const lateDaysList = row.event_days.filter(d => (d.minutesLate || 0) > 0);
+        lateDaysList.forEach(d => {
+          doc.setFontSize(8);
+          doc.setTextColor(120, 120, 120);
+          const timeStr = d.timeInMin !== null ? formatMinutes(d.timeInMin) : '—';
+          const shiftStr = formatMinutes(d.shiftStartMin || 480);
+          doc.text(
+            `  ${d.date}  In: ${timeStr}  (shift: ${shiftStr}) — ${d.minutesLate} min late`,
+            pad + 4, y
+          );
+          doc.text(`-${peso(Math.round(d.minutesLate * EVENT_RATE_PER_MIN * 100) / 100)}`, W - pad, y, { align: 'right' });
+          y += 6;
+        });
+        doc.setFontSize(10);
+        doc.setTextColor(...dark);
+      }
     } else {
       doc.setTextColor(160, 160, 160);
-      doc.text('No deductions', pad, y);
+      doc.text('No deductions — no late arrivals', pad, y);
       y += 8;
     }
   } else {

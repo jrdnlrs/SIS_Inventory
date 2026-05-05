@@ -252,7 +252,53 @@
 
     </div>
     <div id="dtrEventSection" style="display:none">
-      <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+
+      <!-- ── Event DTR Source Toggle ── -->
+      <div style="display:flex;gap:6px;margin-bottom:14px;align-items:center;">
+        <span style="font-size:10px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-muted);margin-right:4px;">DTR Source:</span>
+        <button id="evtSrcLive" class="ptab active" style="padding:5px 14px;font-size:12px" onclick="switchEventDtrSource('live')">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+          Live Punch DTR
+        </button>
+        <button id="evtSrcFile" class="ptab" style="padding:5px 14px;font-size:12px" onclick="switchEventDtrSource('file')">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Upload Excel
+        </button>
+      </div>
+
+      <!-- ── Shift Start Schedule (per day) ── -->
+      <div style="margin-bottom:16px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);border-left:3px solid #a78bfa;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <div>
+            <div style="font-size:10px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:1.2px;color:#a78bfa;margin-bottom:2px;">Shift Start Schedule</div>
+            <div style="font-size:11px;color:var(--text-muted);">Set the expected shift start time per event day — used to compute late deductions.</div>
+          </div>
+          <button class="btn btn-ghost" style="font-size:12px" onclick="addEventShiftDay()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Day
+          </button>
+        </div>
+        <div id="eventShiftSchedule" style="display:flex;flex-direction:column;gap:8px;">
+          <!-- Rows injected by JS -->
+        </div>
+        <div id="eventShiftEmpty" style="font-size:12px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;padding:4px 0;">
+          No event days added yet. Click "Add Day" to set each event date and its shift start time.
+        </div>
+      </div>
+
+      <!-- ── Live Event DTR Panel ── -->
+      <div id="evtLiveDtrPanel" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);">
+        <button class="btn btn-primary" onclick="loadLiveEventDtr()" style="display:flex;align-items:center;gap:7px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+          Load from Live Punch DTR
+        </button>
+        <span style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">
+          Pulls time in/out from punch records on the event dates above
+        </span>
+      </div>
+
+      <!-- ── Excel Upload Panel (hidden by default) ── -->
+      <div id="evtFileDtrPanel" style="display:none;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
         <input type="file" id="eventDtrFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="onEventDtrFileChosen(event)" />
         <button class="btn btn-ghost" onclick="document.getElementById('eventDtrFileInput').click()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -262,10 +308,11 @@
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Download Template
         </button>
-        <span style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace">
-          Columns: Name · Event Name · Pay (optional, uses employee default)
+        <span style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">
+          Columns: Name · Role · Date · Time In · Time Out · Working Hours · Status
         </span>
       </div>
+
     </div>
 
     <!-- ── DTR Preview + Compute ── -->
