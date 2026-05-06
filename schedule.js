@@ -1581,16 +1581,19 @@ async function runEventPayroll() {
       }
 
       const netSalary = dailyRate > 0 ? Math.round((dailyRate - lateDeduction) * 100) / 100 : 0;
-      const salary    = dailyRate > 0 ? dailyRate.toLocaleString('en-PH', { minimumFractionDigits: 2 }) : '—';
-      const lateDed   = lateDeduction > 0 ? lateDeduction.toLocaleString('en-PH', { minimumFractionDigits: 2 }) : '—';
-      const netStr    = netSalary > 0 ? netSalary.toLocaleString('en-PH', { minimumFractionDigits: 2 }) : '—';
+
+      function fmt(n) {
+        const parts = n.toFixed(2).split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return '\u20B1' + parts.join('.');
+      }
 
       return [
         u.display_name,
         eventDateLabel,
-        dailyRate > 0 ? `₱${salary}` : '—',
-        lateDeduction > 0 ? `₱${lateDed}` : '—',
-        netSalary > 0 ? `₱${netStr}` : '—',
+        dailyRate > 0 ? fmt(dailyRate) : '—',
+        lateDeduction > 0 ? fmt(lateDeduction) : '—',
+        netSalary > 0 ? fmt(netSalary) : '—',
         '' // signature — left blank for physical signing
       ];
     });
@@ -1660,11 +1663,13 @@ async function runEventPayroll() {
       styles: {
         font: 'helvetica',
         fontSize: 9,
-        cellPadding: { top: 5, bottom: 5, left: 5, right: 5 },
+        cellPadding: { top: 6, bottom: 6, left: 6, right: 6 },
         lineColor: rule,
         lineWidth: 0.3,
         textColor: ink,
         fillColor: [255, 255, 255],
+        valign: 'middle',
+        halign: 'center',
       },
       headStyles: {
         fillColor: [245, 245, 245],
@@ -1672,18 +1677,19 @@ async function runEventPayroll() {
         fontStyle: 'bold',
         fontSize: 8,
         halign: 'center',
+        valign: 'middle',
         lineColor: rule,
       },
       alternateRowStyles: {
         fillColor: [250, 250, 250],
       },
       columnStyles: {
-        0: { cellWidth: 55, fontStyle: 'bold' },
+        0: { cellWidth: 55, fontStyle: 'bold', halign: 'left' },
         1: { cellWidth: 38, halign: 'center' },
-        2: { cellWidth: 34, halign: 'right' },
-        3: { cellWidth: 34, halign: 'right' },
-        4: { cellWidth: 34, halign: 'right', fontStyle: 'bold' },
-        5: { cellWidth: 'auto', minCellHeight: 14 },
+        2: { cellWidth: 34, halign: 'center' },
+        3: { cellWidth: 34, halign: 'center' },
+        4: { cellWidth: 34, halign: 'center', fontStyle: 'bold' },
+        5: { cellWidth: 'auto', minCellHeight: 16, halign: 'center' },
       },
     });
 
