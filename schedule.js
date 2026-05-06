@@ -531,6 +531,38 @@ function fmtMinutesUntilOpen(mins) {
   return `${m}m`;
 }
 
+// ── ATTENDANCE STATUS HELPER ─────────────────
+// Returns { label, minutesLate, isLate, isPresent }
+// Compares the employee's time_in ISO string against the event's call_date + call_time
+function computeAttendanceStatus(timeInIso, callDate, callTime) {
+  if (!timeInIso) return { isPresent: false, isLate: false, label: '—' };
+
+  const timeIn = new Date(timeInIso);
+  if (isNaN(timeIn)) return { isPresent: true, isLate: false, label: 'Present' };
+
+  // If no call time set, just mark present
+  if (!callDate || !callTime) return { isPresent: true, isLate: false, label: 'Present' };
+
+  const callTs = parseCallDateTime(callDate, callTime);
+  if (isNaN(callTs)) return { isPresent: true, isLate: false, label: 'Present' };
+
+  const diffMs = timeIn.getTime() - callTs; // positive = late
+  const minutesLate = Math.floor(diffMs / 60000);
+
+  if (minutesLate <= 0) {
+    // On time or early
+    const minsEarly = Math.abs(minutesLate);
+    if (minsEarly === 0) return { isPresent: true, isLate: false, label: 'On Time' };
+    return { isPresent: true, isLate: false, label: `${minsEarly}m Early` };
+  }
+
+  // Late
+  const h = Math.floor(minutesLate / 60);
+  const m = minutesLate % 60;
+  const lateStr = h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+  return { isPresent: true, isLate: true, minutesLate, label: `Late ${lateStr}` };
+}
+
 // Build the full Time In panel HTML (async — fetches records)
 async function buildTimeInPanelHTML(eventId) {
   const ev       = _events.find(e => e.id == eventId);
@@ -637,8 +669,8 @@ async function buildTimeInPanelHTML(eventId) {
 
   // Admin rows have extra columns for actions — adjust grid accordingly
   const colsTemplate = _isAdmin
-    ? '32px 1fr 100px 100px 130px'
-    : '32px 1fr 90px 90px';
+    ? '32px 1fr 100px 100px 110px 130px'
+    : '32px 1fr 90px 90px 110px';
 
   const tableRows = assignedUsers.map(u => {
     const rec  = findRecordForUser(u);
@@ -679,22 +711,30 @@ async function buildTimeInPanelHTML(eventId) {
         <div class="ti-row-name">${escHtml(u.display_name)}${isMe ? ' <span class="ti-you-tag">you</span>' : ''}</div>
         <div class="ti-row-time ti-absent">—</div>
         <div class="ti-row-time ti-absent">—</div>
+        <div class="ti-row-time"><span class="ti-status-badge ti-status-absent">Absent</span></div>
         ${adminActions}
       </div>`;
     }
     const hasOut = !!rec.time_out;
+    const attStatus = computeAttendanceStatus(rec.time_in, ev ? ev.call_date : null, ev ? ev.call_time : null);
+    const statusBadge = attStatus.isLate
+      ? `<span class="ti-status-badge ti-status-late">${escHtml(attStatus.label)}</span>`
+      : attStatus.isPresent
+        ? `<span class="ti-status-badge ti-status-ontime">${escHtml(attStatus.label)}</span>`
+        : `<span class="ti-status-badge ti-status-absent">—</span>`;
     return `<div class="ti-row ti-row-present ${isMe ? 'ti-row-me' : ''}" style="grid-template-columns:${colsTemplate};">
       <div class="ti-row-avatar ti-avatar-in">${initials(u.display_name)}</div>
       <div class="ti-row-name">${escHtml(u.display_name)}${isMe ? ' <span class="ti-you-tag">you</span>' : ''}</div>
       <div class="ti-row-time ti-in">${fmtTimeStamp(rec.time_in)}</div>
       <div class="ti-row-time ${hasOut ? 'ti-out' : 'ti-pending'}">${hasOut ? fmtTimeStamp(rec.time_out) : '…'}</div>
+      <div class="ti-row-time">${statusBadge}</div>
       ${adminActions}
     </div>`;
   }).join('');
 
   const colHeaders = _isAdmin
-    ? `<span></span><span></span><span>Time In</span><span>Time Out</span><span style="text-align:right;">Actions</span>`
-    : `<span></span><span></span><span>Time In</span><span>Time Out</span>`;
+    ? `<span></span><span></span><span>Time In</span><span>Time Out</span><span>Status</span><span style="text-align:right;">Actions</span>`
+    : `<span></span><span></span><span>Time In</span><span>Time Out</span><span>Status</span>`;
 
   const presentCount = assignedUsers.filter(u => findRecordForUser(u)).length;
   const totalCount   = assignedUsers.length;
