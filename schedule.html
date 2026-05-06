@@ -340,6 +340,8 @@
   border-radius: var(--radius-lg);
   overflow: hidden;
   margin-bottom: 6px;
+  min-width: 0;
+  width: 100%;
 }
 
 .ti-table-header {
@@ -354,6 +356,21 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.4px;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ti-table-header > span:first-child {
+  flex-shrink: 0;
+}
+
+.ti-table-header > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-width: 0;
 }
 
 .ti-count {
@@ -377,6 +394,8 @@
   letter-spacing: 1.2px;
   color: var(--text-muted);
   align-items: center;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .ti-table-cols span {
@@ -1120,6 +1139,7 @@
   max-width: 580px;
   max-height: 90vh;
   overflow-y: auto;
+  overflow-x: hidden;
   box-shadow: 0 24px 80px rgba(0,0,0,0.5);
 }
 
@@ -1178,6 +1198,8 @@
 
 .detail-body {
   padding: 22px 26px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .detail-sport-tag {
@@ -1230,6 +1252,11 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--text);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
 }
 
 .detail-info-val.accent { color: var(--accent-bright); }
