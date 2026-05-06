@@ -532,31 +532,20 @@ function fmtMinutesUntilOpen(mins) {
 }
 
 // ── ATTENDANCE STATUS HELPER ─────────────────
-// Returns { label, minutesLate, isLate, isPresent }
-// Compares the employee's time_in ISO string against the event's call_date + call_time
 function computeAttendanceStatus(timeInIso, callDate, callTime) {
   if (!timeInIso) return { isPresent: false, isLate: false, label: '—' };
-
   const timeIn = new Date(timeInIso);
   if (isNaN(timeIn)) return { isPresent: true, isLate: false, label: 'Present' };
-
-  // If no call time set, just mark present
   if (!callDate || !callTime) return { isPresent: true, isLate: false, label: 'Present' };
-
   const callTs = parseCallDateTime(callDate, callTime);
   if (isNaN(callTs)) return { isPresent: true, isLate: false, label: 'Present' };
-
-  const diffMs = timeIn.getTime() - callTs; // positive = late
+  const diffMs      = timeIn.getTime() - callTs;
   const minutesLate = Math.floor(diffMs / 60000);
-
   if (minutesLate <= 0) {
-    // On time or early
     const minsEarly = Math.abs(minutesLate);
     if (minsEarly === 0) return { isPresent: true, isLate: false, label: 'On Time' };
     return { isPresent: true, isLate: false, label: `${minsEarly}m Early` };
   }
-
-  // Late
   const h = Math.floor(minutesLate / 60);
   const m = minutesLate % 60;
   const lateStr = h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
@@ -676,7 +665,6 @@ async function buildTimeInPanelHTML(eventId) {
     const rec  = findRecordForUser(u);
     const isMe = u.username === _session.username;
 
-    // Escape username for safe use in onclick (usernames are alphanumeric codes like JSM001)
     const safeUser = u.username.replace(/'/g, "\\'");
     const safeEid  = String(eventId).replace(/'/g, "\\'");
     const safeName = u.display_name.replace(/'/g, "\\'");
@@ -715,13 +703,11 @@ async function buildTimeInPanelHTML(eventId) {
         ${adminActions}
       </div>`;
     }
-    const hasOut = !!rec.time_out;
+    const hasOut    = !!rec.time_out;
     const attStatus = computeAttendanceStatus(rec.time_in, ev ? ev.call_date : null, ev ? ev.call_time : null);
     const statusBadge = attStatus.isLate
       ? `<span class="ti-status-badge ti-status-late">${escHtml(attStatus.label)}</span>`
-      : attStatus.isPresent
-        ? `<span class="ti-status-badge ti-status-ontime">${escHtml(attStatus.label)}</span>`
-        : `<span class="ti-status-badge ti-status-absent">—</span>`;
+      : `<span class="ti-status-badge ti-status-ontime">${escHtml(attStatus.label)}</span>`;
     return `<div class="ti-row ti-row-present ${isMe ? 'ti-row-me' : ''}" style="grid-template-columns:${colsTemplate};">
       <div class="ti-row-avatar ti-avatar-in">${initials(u.display_name)}</div>
       <div class="ti-row-name">${escHtml(u.display_name)}${isMe ? ' <span class="ti-you-tag">you</span>' : ''}</div>
@@ -744,7 +730,13 @@ async function buildTimeInPanelHTML(eventId) {
     <div class="ti-table-wrap">
       <div class="ti-table-header">
         <span>Attendance</span>
-        <span class="ti-count">${presentCount}/${totalCount} clocked in</span>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="ti-count">${presentCount}/${totalCount} clocked in</span>
+          <button class="ti-expand-btn" onclick="openAttendanceExpand('${eventId}')">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            Expand
+          </button>
+        </div>
       </div>
       <div class="ti-table-cols" style="grid-template-columns:${colsTemplate};">
         ${colHeaders}
@@ -752,6 +744,105 @@ async function buildTimeInPanelHTML(eventId) {
       ${tableRows || `<div class="ti-empty">No assignees yet.</div>`}
     </div>`;
 }
+
+// ── ATTENDANCE EXPAND OVERLAY ────────────────
+async function openAttendanceExpand(eventId) {
+  const ev         = _events.find(e => e.id == eventId);
+  const assigned   = _assignees[eventId] || [];
+  const allRecords = await loadAllTimeInRecords(eventId);
+  const assignedUsers = _allUsers.filter(u => assigned.includes(u.username));
+
+  function findRec(u) {
+    let r = allRecords.find(r => r.username && r.username === u.username);
+    if (r) return r;
+    r = allRecords.find(r => r.name && r.name === u.display_name);
+    return r || null;
+  }
+
+  // Wide layout: avatar | name | time-in | time-out | status | actions(admin)
+  const colsExp = _isAdmin
+    ? '40px 1fr 130px 130px 130px 160px'
+    : '40px 1fr 130px 130px 130px';
+
+  const headersExp = _isAdmin
+    ? `<span></span><span>Employee</span><span>Time In</span><span>Time Out</span><span>Status</span><span style="text-align:right;">Actions</span>`
+    : `<span></span><span>Employee</span><span>Time In</span><span>Time Out</span><span>Status</span>`;
+
+  const rows = assignedUsers.map(u => {
+    const rec    = findRec(u);
+    const isMe   = u.username === _session.username;
+    const safeUser = u.username.replace(/'/g, "\\'");
+    const safeEid  = String(eventId).replace(/'/g, "\\'");
+    const safeName = u.display_name.replace(/'/g, "\\'");
+
+    const adminActions = _isAdmin
+      ? `<div style="display:flex;gap:5px;justify-content:flex-end;align-items:center;">
+          ${rec
+            ? `<button title="Edit times" onclick="openEditAttendance('${safeEid}','${safeUser}')"
+                style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:600;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);color:var(--accent-bright);border-radius:5px;cursor:pointer;white-space:nowrap;"
+                onmouseover="this.style.background='rgba(59,130,246,0.22)'" onmouseout="this.style.background='rgba(59,130,246,0.1)'">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+              </button>
+              <button title="Reset" onclick="resetAttendanceRecord('${safeEid}','${safeUser}','${safeName}')"
+                style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:600;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);color:var(--red);border-radius:5px;cursor:pointer;white-space:nowrap;"
+                onmouseover="this.style.background='rgba(248,113,113,0.2)'" onmouseout="this.style.background='rgba(248,113,113,0.08)'">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+                Reset
+              </button>`
+            : `<span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);">—</span>`
+          }
+        </div>`
+      : '';
+
+    if (!rec) {
+      return `<div class="ti-row ti-row-absent ${isMe ? 'ti-row-me' : ''}" style="grid-template-columns:${colsExp};padding:12px 18px;">
+        <div class="ti-row-avatar">${initials(u.display_name)}</div>
+        <div class="ti-row-name">${escHtml(u.display_name)}${isMe ? ' <span class="ti-you-tag">you</span>' : ''}</div>
+        <div class="ti-row-time ti-absent">—</div>
+        <div class="ti-row-time ti-absent">—</div>
+        <div class="ti-row-time"><span class="ti-status-badge ti-status-absent">Absent</span></div>
+        ${adminActions}
+      </div>`;
+    }
+
+    const hasOut    = !!rec.time_out;
+    const attStatus = computeAttendanceStatus(rec.time_in, ev ? ev.call_date : null, ev ? ev.call_time : null);
+    const statusBadge = attStatus.isLate
+      ? `<span class="ti-status-badge ti-status-late">${escHtml(attStatus.label)}</span>`
+      : `<span class="ti-status-badge ti-status-ontime">${escHtml(attStatus.label)}</span>`;
+
+    return `<div class="ti-row ti-row-present ${isMe ? 'ti-row-me' : ''}" style="grid-template-columns:${colsExp};padding:12px 18px;">
+      <div class="ti-row-avatar ti-avatar-in">${initials(u.display_name)}</div>
+      <div class="ti-row-name">${escHtml(u.display_name)}${isMe ? ' <span class="ti-you-tag">you</span>' : ''}</div>
+      <div class="ti-row-time ti-in">${fmtTimeStamp(rec.time_in)}</div>
+      <div class="ti-row-time ${hasOut ? 'ti-out' : 'ti-pending'}">${hasOut ? fmtTimeStamp(rec.time_out) : '…'}</div>
+      <div class="ti-row-time">${statusBadge}</div>
+      ${adminActions}
+    </div>`;
+  }).join('');
+
+  const presentCount = assignedUsers.filter(u => findRec(u)).length;
+
+  document.getElementById('attendanceExpandCount').textContent = `${presentCount}/${assignedUsers.length} clocked in`;
+  document.getElementById('attendanceExpandBody').innerHTML = `
+    <div style="display:grid;grid-template-columns:${colsExp};padding:6px 18px;background:var(--surface2);border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-muted);">
+      ${headersExp}
+    </div>
+    ${rows || `<div class="ti-empty">No assignees yet.</div>`}`;
+
+  document.getElementById('attendanceExpandOverlay').classList.add('open');
+}
+
+function closeAttendanceExpand() {
+  document.getElementById('attendanceExpandOverlay').classList.remove('open');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('attendanceExpandOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeAttendanceExpand();
+  });
+});
 
 // ── ADMIN: RESET ATTENDANCE RECORD ───────────
 async function resetAttendanceRecord(eventId, username, displayName) {
