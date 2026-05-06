@@ -504,8 +504,33 @@ function fmtDateStamp(iso) {
   return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
 }
 
+// ── CLOCK-IN GATE HELPERS ────────────────────
+// Returns { allowed: bool, minutesUntil: number } for 2-hour pre-gate
+function getClockInGateStatus(ev) {
+  if (!ev.call_date || !ev.call_time) return { allowed: true, minutesUntil: 0, noCallTime: true };
+  const callTs  = parseCallDateTime(ev.call_date, ev.call_time);
+  if (isNaN(callTs)) return { allowed: true, minutesUntil: 0, noCallTime: true };
+  const now       = Date.now();
+  const diff      = callTs - now; // ms until call time (negative = past)
+  const twoHrsMs  = 2 * 60 * 60 * 1000;
+  // Allow clock-in if we are within 2 hours before call time OR call time has already passed
+  const allowed   = diff <= twoHrsMs;
+  const minutesUntil = Math.max(0, Math.ceil((diff - twoHrsMs) / 60000));
+  return { allowed, minutesUntil, diff };
+}
+
+function fmtMinutesUntilOpen(mins) {
+  if (mins <= 0) return 'now';
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  return `${m}m`;
+}
+
 // Build the full Time In panel HTML (async — fetches records)
 async function buildTimeInPanelHTML(eventId) {
+  const ev       = _events.find(e => e.id == eventId);
   const assigned = _assignees[eventId] || [];
   const isAssigned = assigned.includes(_session.username);
 
@@ -520,11 +545,30 @@ async function buildTimeInPanelHTML(eventId) {
   const allRecords = await loadAllTimeInRecords(eventId);
   const myRecord   = allRecords.find(r => r.username === _session.username) || null;
 
+  // ── 2-hour pre-gate check ──
+  const gate = ev ? getClockInGateStatus(ev) : { allowed: true };
+
   // ── My clock-in section (assigned employees + admins if assigned) ──
   let mySection = '';
   if (isAssigned) {
     if (!myRecord) {
-      mySection = `
+      if (!gate.allowed) {
+        // Too early — show locked state with countdown
+        mySection = `
+          <div class="ti-my-section" style="border-color:rgba(251,191,36,0.25);background:rgba(251,191,36,0.04);">
+            <div class="ti-my-label">Your Attendance</div>
+            <div class="ti-my-status" style="color:#fbbf24;gap:8px;flex:1;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              Clock-in opens in <strong style="font-family:'JetBrains Mono',monospace;margin:0 3px;">${fmtMinutesUntilOpen(gate.minutesUntil)}</strong>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);margin-left:4px;">(2 hrs before call time)</span>
+            </div>
+            <button class="btn ti-btn" disabled style="opacity:0.4;cursor:not-allowed;background:var(--surface3);border:1px solid var(--border);color:var(--text-muted);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              Locked
+            </button>
+          </div>`;
+      } else {
+        mySection = `
         <div class="ti-my-section">
           <div class="ti-my-label">Your Attendance</div>
           <div class="ti-my-status ti-status-pending">
@@ -536,6 +580,7 @@ async function buildTimeInPanelHTML(eventId) {
             Clock In
           </button>
         </div>`;
+      }
     } else if (!myRecord.time_out) {
       mySection = `
         <div class="ti-my-section ti-active">
@@ -563,25 +608,62 @@ async function buildTimeInPanelHTML(eventId) {
 
   // ── Attendance table (all assigned employees) ──
   const assignedUsers = _allUsers.filter(u => assigned.includes(u.username));
+
+  // Admin rows have extra columns for actions — adjust grid accordingly
+  const colsTemplate = _isAdmin
+    ? '32px 1fr 100px 100px 90px'
+    : '32px 1fr 90px 90px';
+
   const tableRows = assignedUsers.map(u => {
-    const rec = allRecords.find(r => r.username === u.username);
+    const rec  = allRecords.find(r => r.username === u.username);
     const isMe = u.username === _session.username;
+
+    const adminActions = _isAdmin
+      ? `<div class="ti-row-actions" style="display:flex;gap:5px;justify-content:flex-end;">
+          ${rec
+            ? `<button
+                title="Edit times"
+                onclick="openEditAttendance('${eventId}','${u.username}','${rec.id}','${rec.time_in || ''}','${rec.time_out || ''}')"
+                style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:0.3px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);color:var(--accent-bright);border-radius:5px;cursor:pointer;transition:all 0.15s;white-space:nowrap;"
+                onmouseover="this.style.background='rgba(59,130,246,0.2)'" onmouseout="this.style.background='rgba(59,130,246,0.1)'">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+              </button>
+              <button
+                title="Reset attendance"
+                onclick="resetAttendanceRecord('${eventId}','${rec.id}','${escHtml(u.display_name)}')"
+                style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:0.3px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);color:var(--red);border-radius:5px;cursor:pointer;transition:all 0.15s;white-space:nowrap;"
+                onmouseover="this.style.background='rgba(248,113,113,0.18)'" onmouseout="this.style.background='rgba(248,113,113,0.08)'">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+                Reset
+              </button>`
+            : `<span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:0.5px;">not in</span>`
+          }
+        </div>`
+      : '';
+
     if (!rec) {
-      return `<div class="ti-row ti-row-absent ${isMe ? 'ti-row-me' : ''}">
+      return `<div class="ti-row ti-row-absent ${isMe ? 'ti-row-me' : ''}" style="grid-template-columns:${colsTemplate};">
         <div class="ti-row-avatar">${initials(u.display_name)}</div>
         <div class="ti-row-name">${escHtml(u.display_name)}${isMe ? ' <span class="ti-you-tag">you</span>' : ''}</div>
         <div class="ti-row-time ti-absent">—</div>
         <div class="ti-row-time ti-absent">—</div>
+        ${adminActions}
       </div>`;
     }
     const hasOut = !!rec.time_out;
-    return `<div class="ti-row ti-row-present ${isMe ? 'ti-row-me' : ''}">
+    return `<div class="ti-row ti-row-present ${isMe ? 'ti-row-me' : ''}" style="grid-template-columns:${colsTemplate};">
       <div class="ti-row-avatar ti-avatar-in">${initials(u.display_name)}</div>
       <div class="ti-row-name">${escHtml(u.display_name)}${isMe ? ' <span class="ti-you-tag">you</span>' : ''}</div>
       <div class="ti-row-time ti-in">${fmtTimeStamp(rec.time_in)}</div>
       <div class="ti-row-time ${hasOut ? 'ti-out' : 'ti-pending'}">${hasOut ? fmtTimeStamp(rec.time_out) : '…'}</div>
+      ${adminActions}
     </div>`;
   }).join('');
+
+  const colHeaders = _isAdmin
+    ? `<span></span><span></span><span>Time In</span><span>Time Out</span><span style="text-align:right;">Actions</span>`
+    : `<span></span><span></span><span>Time In</span><span>Time Out</span>`;
 
   const presentCount = allRecords.length;
   const totalCount   = assignedUsers.length;
@@ -593,11 +675,145 @@ async function buildTimeInPanelHTML(eventId) {
         <span>Attendance</span>
         <span class="ti-count">${presentCount}/${totalCount} clocked in</span>
       </div>
-      <div class="ti-table-cols">
-        <span>Employee</span><span></span><span>Time In</span><span>Time Out</span>
+      <div class="ti-table-cols" style="grid-template-columns:${colsTemplate};">
+        ${colHeaders}
       </div>
       ${tableRows || `<div class="ti-empty">No assignees yet.</div>`}
     </div>`;
+}
+
+// ── ADMIN: RESET ATTENDANCE RECORD ───────────
+async function resetAttendanceRecord(eventId, recordId, displayName) {
+  if (!_isAdmin) return;
+  if (!confirm(`Reset attendance for ${displayName}? This will permanently delete their clock-in record for this event.`)) return;
+
+  try {
+    await dbDelete(`${EVENT_TIMEIN_URL}?id=eq.${recordId}`);
+    toast(`Attendance reset for ${displayName}.`, 'success');
+    await refreshTimeInPanel(eventId);
+  } catch (e) {
+    toast('Reset failed: ' + e.message, 'error');
+  }
+}
+
+// ── ADMIN: EDIT ATTENDANCE MODAL ─────────────
+function openEditAttendance(eventId, username, recordId, rawTimeIn, rawTimeOut) {
+  if (!_isAdmin) return;
+
+  // Convert ISO timestamps to local datetime-local format (YYYY-MM-DDTHH:MM)
+  function isoToLocal(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  // Inject the edit modal if not present
+  let overlay = document.getElementById('editAttendanceOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'editAttendanceOverlay';
+    overlay.style.cssText = `
+      position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);
+      z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;
+    `;
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeEditAttendance(); });
+    document.body.appendChild(overlay);
+  }
+
+  const user = _allUsers.find(u => u.username === username);
+  const name = user ? user.display_name : username;
+
+  overlay.innerHTML = `
+    <div style="
+      background:var(--surface);border:1px solid var(--border-bright);border-radius:var(--radius-lg);
+      width:100%;max-width:420px;box-shadow:0 24px 80px rgba(0,0,0,0.5);
+    ">
+      <!-- Header -->
+      <div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;gap:10px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);display:inline-block;flex-shrink:0;"></span>
+            Edit Attendance
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);margin-top:4px;">${escHtml(name)}</div>
+        </div>
+        <button onclick="closeEditAttendance()" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-muted);width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">✕</button>
+      </div>
+
+      <!-- Body -->
+      <div style="padding:20px 24px;">
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div>
+            <label style="display:block;font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);margin-bottom:7px;">Time In</label>
+            <input id="editTiIn" type="datetime-local" value="${isoToLocal(rawTimeIn)}" style="width:100%;padding:9px 13px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;transition:border-color 0.15s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+          </div>
+          <div>
+            <label style="display:block;font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);margin-bottom:7px;">Time Out <span style="font-weight:400;color:var(--text-dim);text-transform:none;letter-spacing:0;">(optional)</span></label>
+            <input id="editTiOut" type="datetime-local" value="${isoToLocal(rawTimeOut)}" style="width:100%;padding:9px 13px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;transition:border-color 0.15s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+          </div>
+        </div>
+
+        <div style="margin-top:6px;padding:10px 12px;border-radius:var(--radius);background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.12);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);display:flex;align-items:center;gap:7px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent-bright)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Admin override — times will be saved as entered.
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="padding:14px 24px 20px;display:flex;align-items:center;justify-content:flex-end;gap:10px;border-top:1px solid var(--border);">
+        <button onclick="closeEditAttendance()" class="btn btn-ghost">Cancel</button>
+        <button onclick="saveEditAttendance('${eventId}','${recordId}')" class="btn btn-primary">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Save Changes
+        </button>
+      </div>
+    </div>`;
+
+  overlay.style.display = 'flex';
+}
+
+function closeEditAttendance() {
+  const overlay = document.getElementById('editAttendanceOverlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+async function saveEditAttendance(eventId, recordId) {
+  if (!_isAdmin) return;
+  const inVal  = document.getElementById('editTiIn').value;
+  const outVal = document.getElementById('editTiOut').value;
+
+  if (!inVal) {
+    toast('Time In is required.', 'error');
+    return;
+  }
+
+  // Convert local datetime-local value to ISO string
+  function localToIso(val) {
+    if (!val) return null;
+    return new Date(val).toISOString();
+  }
+
+  const timeInIso  = localToIso(inVal);
+  const timeOutIso = outVal ? localToIso(outVal) : null;
+
+  if (timeOutIso && new Date(timeInIso) >= new Date(timeOutIso)) {
+    toast('Time Out must be after Time In.', 'error');
+    return;
+  }
+
+  try {
+    await dbPatch(`${EVENT_TIMEIN_URL}?id=eq.${recordId}`, {
+      time_in:  timeInIso,
+      time_out: timeOutIso,
+    });
+    toast('Attendance updated successfully.', 'success');
+    closeEditAttendance();
+    await refreshTimeInPanel(eventId);
+  } catch (e) {
+    toast('Failed to save: ' + e.message, 'error');
+  }
 }
 
 // ── DETAIL MODAL ────────────────────────────
