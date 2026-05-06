@@ -856,7 +856,7 @@ CREATE POLICY "Anon delete"  ON call_times FOR DELETE USING (true);</code>
           <td><strong>${u.display_name}</strong></td>
           <td><span class="badge ${u.role === 'superadmin' ? 'badge-spare' : u.role === 'admin' ? 'badge-active' : 'badge-low'}">${u.role}</span></td>
           <td><span style="color:${u.active ? 'var(--green)' : 'var(--red)'}">${u.active ? 'Active' : 'Inactive'}</span></td>
-          <td><button class="btn btn-edit" style="padding:4px 8px;" onclick="toast('Cannot edit static file. Use Generator.', 'error')">Edit</button></td>
+          <td><button class="btn btn-edit" style="padding:4px 8px;" onclick="openEditUserModal('${u.username}','${u.display_name.replace(/'/g,"\\'")}','${u.role}')">Edit</button></td>
         </tr>
       `).join('');
     } catch (e) {
@@ -865,6 +865,30 @@ CREATE POLICY "Anon delete"  ON call_times FOR DELETE USING (true);</code>
 
     // ── Payroll employees from Supabase ──
     await loadSaEmployees();
+  }
+
+  // ── EDIT USER (opens hash generator pre-filled) ──
+  function openEditUserModal(username, displayName, role) {
+    // Pre-fill the generator fields with existing user data
+    document.getElementById('hashUsername').value = username;
+    document.getElementById('hashName').value     = displayName;
+    document.getElementById('hashRole').value     = role;
+    document.getElementById('hashPass').value     = '';
+
+    // Swap modal title and description to reflect edit context
+    document.querySelector('#hashModal h2').innerHTML =
+      `<span class="dot" style="background:#a78bfa;box-shadow:0 0 8px #a78bfa;"></span> Edit User: ${username}`;
+
+    const desc = document.querySelector('#hashModal p');
+    if (desc) desc.innerHTML =
+      `Pre-filled with <strong>${displayName}</strong>'s current data. Enter a new password to change it, or leave blank to keep it the same. Copy the output and update <code>users.json</code>.`;
+
+    // Clear previous output
+    document.getElementById('hashOutputContainer').style.display = 'none';
+    document.getElementById('hashResult').textContent = '';
+
+    document.getElementById('hashModal').classList.add('open');
+    setTimeout(() => document.getElementById('hashPass').focus(), 120);
   }
 
   let saEmployees = [];
@@ -967,8 +991,19 @@ CREATE POLICY "Anon delete"  ON call_times FOR DELETE USING (true);</code>
   }
 
   function openHashModal() {
-    document.getElementById('hashModal').classList.add('open');
+    // Reset to "create" mode title/desc
+    document.querySelector('#hashModal h2').innerHTML =
+      `<span class="dot" style="background:#a78bfa;box-shadow:0 0 8px #a78bfa;"></span> Create User Account`;
+    const desc = document.querySelector('#hashModal p');
+    if (desc) desc.innerHTML =
+      `Generate the JSON snippet needed to add a new user to the secure <code>users.json</code> file.`;
+    // Clear fields
+    document.getElementById('hashUsername').value = '';
+    document.getElementById('hashName').value     = '';
+    document.getElementById('hashRole').value     = 'employee';
+    document.getElementById('hashPass').value     = '';
     document.getElementById('hashOutputContainer').style.display = 'none';
+    document.getElementById('hashModal').classList.add('open');
   }
 
   async function generateUserJson() {
@@ -977,14 +1012,23 @@ CREATE POLICY "Anon delete"  ON call_times FOR DELETE USING (true);</code>
     const role = document.getElementById('hashRole').value;
     const pass = document.getElementById('hashPass').value;
 
-    if(!user || !name || !pass) { toast('All fields required', 'error'); return; }
+    if (!user || !name) { toast('Username and Display Name are required.', 'error'); return; }
 
-    const hash = await AUTH.hashPassword(pass);
-    const jsonString = `    {\n      "username": "${user}",\n      "display_name": "${name}",\n      "password_hash": "${hash}",\n      "role": "${role}",\n      "active": true\n    },`;
-    
+    // In edit mode, password can be blank — show a note instead of a hash
+    let hashLine;
+    if (pass) {
+      const hash = await AUTH.hashPassword(pass);
+      hashLine = `"password_hash": "${hash}"`;
+      logAudit('GENERATE_HASH', `Regenerated credentials for user: ${user}`);
+    } else {
+      hashLine = `"password_hash": "← KEEP EXISTING HASH (password unchanged)"`;
+      toast('No password entered — hash placeholder shown. Copy the old hash from users.json manually.', 'info');
+    }
+
+    const jsonString = `    {\n      "username": "${user}",\n      "display_name": "${name}",\n      ${hashLine},\n      "role": "${role}",\n      "active": true\n    },`;
+
     document.getElementById('hashResult').textContent = jsonString;
     document.getElementById('hashOutputContainer').style.display = 'block';
-    logAudit('GENERATE_HASH', `Generated secure credentials code for new user: ${user}`);
   }
 
   function copyHash() {
