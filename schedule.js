@@ -1358,6 +1358,11 @@ async function saveEvent() {
   }
 
   // ── PAST CALL TIME CHECK ─────────────────────────────────────────
+  const callDateTime = parseCallDateTime(callDate, callTime);
+  if (!isNaN(callDateTime) && callDateTime <= Date.now()) {
+    toast('Call time cannot be in the past. Please set a future date and time.', 'error');
+    return;
+  }
 
   const payload = {
     event_name:  name,
@@ -1406,10 +1411,24 @@ async function saveEvent() {
         username,
         hole_number: hole_number || null,
       }));
-      await dbPost(
-        `${SUPABASE_URL}/rest/v1/sport_event_assignees`,
-        rows
-      );
+
+      try {
+        await dbPost(`${SUPABASE_URL}/rest/v1/sport_event_assignees`, rows);
+      } catch (assignErr) {
+        // If hole_number column doesn't exist yet, retry without it
+        const errText = assignErr.message || '';
+        if (errText.includes('hole_number') || errText.includes('column')) {
+          console.warn('[schedule] hole_number column missing — retrying without it. Run: ALTER TABLE sport_event_assignees ADD COLUMN hole_number integer;');
+          const rowsFallback = [..._selectedAssignees.keys()].map(username => ({
+            event_id: eventId,
+            username,
+          }));
+          await dbPost(`${SUPABASE_URL}/rest/v1/sport_event_assignees`, rowsFallback);
+          toast('Assignees saved (hole numbers skipped — column missing in DB). See console.', 'info');
+        } else {
+          throw assignErr;
+        }
+      }
     }
 
     toast(_editingId ? 'Event updated successfully.' : 'Event created successfully.', 'success');
@@ -1420,7 +1439,9 @@ async function saveEvent() {
 
   } catch (err) {
     console.error('[schedule] saveEvent error:', err);
-    toast('Failed to save event. Check console for details.', 'error');
+    const msg = err.message || '';
+    const short = msg.length > 120 ? msg.slice(0, 120) + '…' : msg;
+    toast(`Save failed: ${short}`, 'error');
   } finally {
     btn.disabled    = false;
     btn.innerHTML   = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Save Event`;
