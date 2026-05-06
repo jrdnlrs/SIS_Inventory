@@ -670,10 +670,10 @@ async function buildTimeInPanelHTML(eventId) {
   });
 
   // Admin rows have extra columns for actions — adjust grid accordingly
-  // Golf: avatar | name | hole | time-in | time-out | status | [actions]
+  // Compact (detail modal): avatar | name | [hole] | status
   const colsTemplate = isGolf
-    ? (_isAdmin ? '32px 1fr 56px 100px 100px 110px 130px' : '32px 1fr 56px 90px 90px 110px')
-    : (_isAdmin ? '32px 1fr 100px 100px 110px 130px'      : '32px 1fr 90px 90px 110px');
+    ? '32px 1fr 56px 110px'
+    : '32px 1fr 110px';
 
   const tableRows = assignedUsers.map(u => {
     const rec  = findRecordForUser(u);
@@ -718,10 +718,7 @@ async function buildTimeInPanelHTML(eventId) {
         <div class="ti-row-avatar">${initials(u.display_name)}</div>
         <div class="ti-row-name">${escHtml(u.display_name)}${isMe ? ' <span class="ti-you-tag">you</span>' : ''}</div>
         ${holeCellAbsent}
-        <div class="ti-row-time ti-absent">—</div>
-        <div class="ti-row-time ti-absent">—</div>
         <div class="ti-row-time"><span class="ti-status-badge ti-status-absent">Absent</span></div>
-        ${adminActions}
       </div>`;
     }
     const hasOut    = !!rec.time_out;
@@ -737,17 +734,12 @@ async function buildTimeInPanelHTML(eventId) {
       <div class="ti-row-avatar ti-avatar-in">${initials(u.display_name)}</div>
       <div class="ti-row-name">${escHtml(u.display_name)}${isMe ? ' <span class="ti-you-tag">you</span>' : ''}</div>
       ${holeCellPresent}
-      <div class="ti-row-time ti-in">${fmtTimeStamp(rec.time_in)}</div>
-      <div class="ti-row-time ${hasOut ? 'ti-out' : 'ti-pending'}">${hasOut ? fmtTimeStamp(rec.time_out) : '…'}</div>
       <div class="ti-row-time">${statusBadge}</div>
-      ${adminActions}
     </div>`;
   }).join('');
 
   const holeHeader   = isGolf ? `<span style="text-align:center;">Hole</span>` : '';
-  const colHeaders = _isAdmin
-    ? `<span></span><span></span>${holeHeader}<span>Time In</span><span>Time Out</span><span>Status</span><span style="text-align:right;">Actions</span>`
-    : `<span></span><span></span>${holeHeader}<span>Time In</span><span>Time Out</span><span>Status</span>`;
+  const colHeaders = `<span></span><span></span>${holeHeader}<span>Status</span>`;
 
   const presentCount = assignedUsers.filter(u => findRecordForUser(u)).length;
   const totalCount   = assignedUsers.length;
