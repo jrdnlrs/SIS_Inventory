@@ -448,7 +448,9 @@ async function loadMyTimeInRecord(eventId) {
 // Load ALL time-in records for an event (admin view)
 async function loadAllTimeInRecords(eventId) {
   try {
-    return await dbGet(`${EVENT_TIMEIN_URL}?event_id=eq.${eventId}&select=*&order=time_in.asc`);
+    const rows = await dbGet(`${EVENT_TIMEIN_URL}?event_id=eq.${eventId}&select=*&order=time_in.asc`);
+    console.log(`[timein] ${rows.length} records for event ${eventId}:`, rows.map(r => ({ id: r.id, name: r.name, username: r.username, time_in: r.time_in })));
+    return rows;
   } catch { return []; }
 }
 
@@ -720,46 +722,47 @@ async function resetAttendanceRecord(eventId, username, displayName) {
   if (!confirm(`Reset attendance for ${displayName}? This will permanently delete their clock-in record for this event.`)) return;
 
   let deleted = false;
+  const headers = { ...dbHeaders(), 'Prefer': 'return=minimal' };
 
-  // Strategy 1: delete by id (UUID)
-  if (rec.id) {
-    try {
-      const url = `${EVENT_TIMEIN_URL}?id=eq.${rec.id}`;
-      const headers = { ...dbHeaders(), 'Prefer': 'return=minimal' };
-      const res = await fetch(url, { method: 'DELETE', headers });
-      if (res.ok || res.status === 204) {
-        deleted = true;
-      } else {
-        const errText = await res.text();
-        console.warn('[reset by id failed]', res.status, errText);
-      }
-    } catch(e) { console.warn('[reset by id error]', e); }
-  }
-
-  // Strategy 2: delete by event_id + name (fallback if id delete was blocked)
-  if (!deleted && rec.name) {
+  // Always delete by event_id + name to catch ALL duplicate rows for this person
+  // (deleting by id alone leaves duplicates behind)
+  if (rec.name) {
     try {
       const url = `${EVENT_TIMEIN_URL}?event_id=eq.${eventId}&name=eq.${encodeURIComponent(rec.name)}`;
-      const headers = { ...dbHeaders(), 'Prefer': 'return=minimal' };
       const res = await fetch(url, { method: 'DELETE', headers });
       if (res.ok || res.status === 204) {
         deleted = true;
       } else {
         const errText = await res.text();
         console.warn('[reset by name failed]', res.status, errText);
-        toast(`Reset blocked by database policy. Check Supabase RLS for event_timein_logs. (${res.status})`, 'error');
-        return;
       }
-    } catch(e) {
-      console.error('[reset by name error]', e);
-      toast('Reset failed: ' + e.message, 'error');
-      return;
-    }
+    } catch(e) { console.warn('[reset by name error]', e); }
+  }
+
+  // Also delete by id as belt-and-suspenders
+  if (rec.id) {
+    try {
+      const url = `${EVENT_TIMEIN_URL}?id=eq.${rec.id}`;
+      const res = await fetch(url, { method: 'DELETE', headers });
+      if (res.ok || res.status === 204) deleted = true;
+    } catch(e) { console.warn('[reset by id error]', e); }
+  }
+
+  // Also delete by event_id + username if that column exists
+  if (rec.username || username) {
+    try {
+      const u = rec.username || username;
+      const url = `${EVENT_TIMEIN_URL}?event_id=eq.${eventId}&username=eq.${encodeURIComponent(u)}`;
+      const res = await fetch(url, { method: 'DELETE', headers });
+      if (res.ok || res.status === 204) deleted = true;
+    } catch(e) { /* column may not exist — ignore */ }
   }
 
   if (deleted) {
     delete window._tiRecordCache[eventId][username];
     toast(`Attendance reset for ${displayName}.`, 'success');
+    // Small delay to let Supabase propagate before re-fetching
+    await new Promise(r => setTimeout(r, 400));
     await refreshTimeInPanel(eventId);
   } else {
     toast('Could not delete record — check Supabase RLS policies on event_timein_logs.', 'error');
