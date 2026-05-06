@@ -935,19 +935,38 @@
         </div>
       </div>
 
-      <div class="form-row triple">
+      <!-- Call Time row -->
+      <div class="form-row">
         <div class="form-group">
-          <label>Date <span style="color:var(--red)">*</span></label>
+          <label>Call Date <span style="color:var(--red)">*</span></label>
+          <input type="date" id="fCallDate" />
+        </div>
+        <div class="form-group">
+          <label>Call Time <span style="color:var(--red)">*</span>
+            <span style="font-weight:400;color:var(--text-muted);font-size:10px;margin-left:6px;text-transform:none;letter-spacing:0;">Required arrival</span>
+          </label>
+          <input type="time" id="fCallTime" />
+        </div>
+      </div>
+
+      <!-- Match Start row -->
+      <div class="form-row">
+        <div class="form-group">
+          <label>Match Date <span style="color:var(--red)">*</span></label>
           <input type="date" id="fEventDate" />
         </div>
         <div class="form-group">
-          <label>Start Time</label>
+          <label>Match Start Time
+            <span style="font-weight:400;color:var(--text-muted);font-size:10px;margin-left:6px;text-transform:none;letter-spacing:0;">When the game begins</span>
+          </label>
           <input type="time" id="fEventTime" />
         </div>
-        <div class="form-group">
-          <label>Call Time <span style="color:var(--red)">*</span></label>
-          <input type="time" id="fCallTime" />
-        </div>
+      </div>
+
+      <!-- Overnight indicator (shown by JS when call date ≠ match date) -->
+      <div id="overnightNotice" style="display:none;margin-bottom:16px;padding:10px 14px;border-radius:var(--radius);background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);font-family:'JetBrains Mono',monospace;font-size:11px;color:#fbbf24;display:flex;align-items:center;gap:8px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span id="overnightNoticeText">Overnight event — call time and match start are on different dates.</span>
       </div>
 
       <div class="form-row">
@@ -1015,5 +1034,30 @@
 <script src="config.js"></script>
 <script src="auth.js"></script>
 <script src="schedule.js"></script>
+<script>
+// ── Overnight notice watcher ──────────────────
+function checkOvernightNotice() {
+  const callDate  = document.getElementById('fCallDate').value;
+  const matchDate = document.getElementById('fEventDate').value;
+  const notice    = document.getElementById('overnightNotice');
+  if (!notice) return;
+  if (callDate && matchDate && callDate !== matchDate) {
+    const cd   = new Date(callDate  + 'T00:00:00');
+    const md   = new Date(matchDate + 'T00:00:00');
+    const diff = Math.round((md - cd) / 86400000);
+    const label = diff === 1 ? 'next day' : diff === -1 ? 'previous day'
+      : `${Math.abs(diff)} days ${diff > 0 ? 'later' : 'earlier'}`;
+    document.getElementById('overnightNoticeText').textContent =
+      `Overnight event — call time is on ${cd.toLocaleDateString('en-PH',{month:'short',day:'numeric'})}, match starts ${label} on ${md.toLocaleDateString('en-PH',{month:'short',day:'numeric'})}.`;
+    notice.style.display = 'flex';
+  } else {
+    notice.style.display = 'none';
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('fCallDate').addEventListener('change', checkOvernightNotice);
+  document.getElementById('fEventDate').addEventListener('change', checkOvernightNotice);
+});
+</script>
 </body>
 </html>

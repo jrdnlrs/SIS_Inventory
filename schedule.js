@@ -298,15 +298,19 @@ function openDetail(eventId) {
 
       <div class="detail-info-grid">
         <div class="detail-info-item">
-          <div class="detail-info-label">Date</div>
-          <div class="detail-info-val accent">${formatDisplayDate(ev.event_date)}</div>
+          <div class="detail-info-label">Call Date</div>
+          <div class="detail-info-val accent">${formatDisplayDate(ev.call_date || ev.event_date)}</div>
+        </div>
+        <div class="detail-info-item">
+          <div class="detail-info-label">Match Date</div>
+          <div class="detail-info-val accent">${formatDisplayDate(ev.event_date)}${ev.call_date && ev.call_date !== ev.event_date ? ' <span style="font-size:10px;font-family:\'JetBrains Mono\',monospace;background:rgba(251,191,36,0.12);color:#fbbf24;padding:1px 7px;border-radius:4px;vertical-align:middle;margin-left:4px;">OVERNIGHT</span>' : ''}</div>
         </div>
         <div class="detail-info-item">
           <div class="detail-info-label">Venue</div>
           <div class="detail-info-val">${escHtml(ev.venue || 'TBD')}</div>
         </div>
         <div class="detail-info-item">
-          <div class="detail-info-label">Start Time</div>
+          <div class="detail-info-label">Match Start</div>
           <div class="detail-info-val">${formatDisplayTime(ev.event_time)}</div>
         </div>
         <div class="detail-info-item">
@@ -379,6 +383,7 @@ function openCreateModal() {
   document.getElementById('deleteEventBtn').style.display  = 'none';
   document.getElementById('fEventName').value   = '';
   document.getElementById('fSport').value       = '';
+  document.getElementById('fCallDate').value    = '';
   document.getElementById('fEventDate').value   = '';
   document.getElementById('fEventTime').value   = '';
   document.getElementById('fCallTime').value    = '';
@@ -403,6 +408,7 @@ function openEditModal(eventId) {
   document.getElementById('deleteEventBtn').style.display  = '';
   document.getElementById('fEventName').value  = ev.event_name  || '';
   document.getElementById('fSport').value      = ev.sport       || '';
+  document.getElementById('fCallDate').value   = ev.call_date   || ev.event_date || '';
   document.getElementById('fEventDate').value  = ev.event_date  || '';
   document.getElementById('fEventTime').value  = ev.event_time  || '';
   document.getElementById('fCallTime').value   = ev.call_time   || '';
@@ -473,6 +479,7 @@ function updateAssignCount() {
 async function saveEvent() {
   const name     = document.getElementById('fEventName').value.trim();
   const sport    = document.getElementById('fSport').value;
+  const callDate = document.getElementById('fCallDate').value;
   const date     = document.getElementById('fEventDate').value;
   const time     = document.getElementById('fEventTime').value;
   const callTime = document.getElementById('fCallTime').value;
@@ -482,13 +489,15 @@ async function saveEvent() {
 
   if (!name)     { toast('Event name is required.', 'error'); return; }
   if (!sport)    { toast('Please select a sport.', 'error'); return; }
-  if (!date)     { toast('Event date is required.', 'error'); return; }
+  if (!callDate) { toast('Call date is required.', 'error'); return; }
   if (!callTime) { toast('Call time is required.', 'error'); return; }
+  if (!date)     { toast('Match date is required.', 'error'); return; }
   if (!venue)    { toast('Venue is required.', 'error'); return; }
 
   const payload = {
     event_name:  name,
     sport,
+    call_date:   callDate,
     event_date:  date,
     event_time:  time || null,
     call_time:   callTime,
