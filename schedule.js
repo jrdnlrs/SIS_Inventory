@@ -640,7 +640,15 @@ async function buildTimeInPanelHTML(eventId) {
   }
 
   // ── Attendance table (all assigned employees) ──
-  const assignedUsers = _allUsers.filter(u => assigned.includes(u.username));
+  // Sort by hole number for golf, otherwise keep original order
+  const assignedUsers = _allUsers
+    .filter(u => assigned.includes(u.username))
+    .sort((a, b) => {
+      if (!isGolf) return 0;
+      const ha = holeMap[a.username] || 999;
+      const hb = holeMap[b.username] || 999;
+      return ha - hb;
+    });
 
   // Helper: find a record for a user — tries username match first, then display_name match
   function findRecordForUser(u) {
@@ -662,11 +670,10 @@ async function buildTimeInPanelHTML(eventId) {
   });
 
   // Admin rows have extra columns for actions — adjust grid accordingly
-  // Golf adds a Hole column before the time columns
-  const holeCol      = isGolf ? ' 52px' : '';
-  const colsTemplate = _isAdmin
-    ? `32px 1fr${holeCol} 100px 100px 110px 130px`
-    : `32px 1fr${holeCol} 90px 90px 110px`;
+  // Golf: avatar | name | hole | time-in | time-out | status | [actions]
+  const colsTemplate = isGolf
+    ? (_isAdmin ? '32px 1fr 56px 100px 100px 110px 130px' : '32px 1fr 56px 90px 90px 110px')
+    : (_isAdmin ? '32px 1fr 100px 100px 110px 130px'      : '32px 1fr 90px 90px 110px');
 
   const tableRows = assignedUsers.map(u => {
     const rec  = findRecordForUser(u);
@@ -775,7 +782,14 @@ async function openAttendanceExpand(eventId) {
   );
   const isGolf       = ev && ev.sport === 'golf';
   const allRecords   = await loadAllTimeInRecords(eventId);
-  const assignedUsers = _allUsers.filter(u => assigned.includes(u.username));
+  const assignedUsers = _allUsers
+    .filter(u => assigned.includes(u.username))
+    .sort((a, b) => {
+      if (!isGolf) return 0;
+      const ha = holeMap[a.username] || 999;
+      const hb = holeMap[b.username] || 999;
+      return ha - hb;
+    });
 
   function findRec(u) {
     let r = allRecords.find(r => r.username && r.username === u.username);
@@ -785,10 +799,9 @@ async function openAttendanceExpand(eventId) {
   }
 
   // Wide layout: avatar | name | [hole] | time-in | time-out | status | actions(admin)
-  const holeColExp = isGolf ? ' 60px' : '';
-  const colsExp = _isAdmin
-    ? `40px 1fr${holeColExp} 130px 130px 130px 160px`
-    : `40px 1fr${holeColExp} 130px 130px 130px`;
+  const colsExp = isGolf
+    ? (_isAdmin ? '40px 1fr 60px 130px 130px 130px 160px' : '40px 1fr 60px 130px 130px 130px')
+    : (_isAdmin ? '40px 1fr 130px 130px 130px 160px'      : '40px 1fr 130px 130px 130px');
 
   const holeHeaderExp = isGolf ? `<span style="text-align:center;">Hole</span>` : '';
   const headersExp = _isAdmin
