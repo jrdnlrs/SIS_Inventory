@@ -670,10 +670,10 @@ async function buildTimeInPanelHTML(eventId) {
   });
 
   // Admin rows have extra columns for actions — adjust grid accordingly
-  // Compact (detail modal): avatar | name | [hole] | status
+  // Compact (detail modal): avatar | name | [hole] | time-in | status
   const colsTemplate = isGolf
-    ? '32px 1fr 56px 110px'
-    : '32px 1fr 110px';
+    ? '32px 1fr 56px 90px 110px'
+    : '32px 1fr 90px 110px';
 
   const tableRows = assignedUsers.map(u => {
     const rec  = findRecordForUser(u);
@@ -718,6 +718,7 @@ async function buildTimeInPanelHTML(eventId) {
         <div class="ti-row-avatar">${initials(u.display_name)}</div>
         <div class="ti-row-name">${escHtml(u.display_name)}${isMe ? ' <span class="ti-you-tag">you</span>' : ''}</div>
         ${holeCellAbsent}
+        <div class="ti-row-time ti-absent" style="text-align:center;">—</div>
         <div class="ti-row-time"><span class="ti-status-badge ti-status-absent">Absent</span></div>
       </div>`;
     }
@@ -734,12 +735,13 @@ async function buildTimeInPanelHTML(eventId) {
       <div class="ti-row-avatar ti-avatar-in">${initials(u.display_name)}</div>
       <div class="ti-row-name">${escHtml(u.display_name)}${isMe ? ' <span class="ti-you-tag">you</span>' : ''}</div>
       ${holeCellPresent}
+      <div class="ti-row-time ti-in" style="text-align:center;">${fmtTimeStamp(rec.time_in)}</div>
       <div class="ti-row-time">${statusBadge}</div>
     </div>`;
   }).join('');
 
   const holeHeader   = isGolf ? `<span style="text-align:center;">Hole</span>` : '';
-  const colHeaders = `<span></span><span></span>${holeHeader}<span>Status</span>`;
+  const colHeaders = `<span></span><span></span>${holeHeader}<span style="text-align:center;">Time In</span><span>Status</span>`;
 
   const presentCount = assignedUsers.filter(u => findRecordForUser(u)).length;
   const totalCount   = assignedUsers.length;
