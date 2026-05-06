@@ -3,38 +3,38 @@
   "_howto": "To add a user: copy any entry, change username, set password_hash to SHA-256 of their password, set role to 'admin' or 'employee'.",
   "users": [
     {
-      "username": "JSM001",
-      "display_name": "Admin Jay",
-      "password_hash": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+      "username": "USR001",
+      "display_name": "MISSING_USER_001",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "JPM002",
+      "display_name": "Sir JP",
+      "password_hash": "c9b255cf6dc2fd9546fd391f1f08150dfa67a63eddcc7b39b98c82f172439fa4",
       "role": "admin",
       "active": true
     },
     {
-      "username": "EJL002",
-      "display_name": "Elijah Lirios",
-      "password_hash": "1084285cbe681fb7c2e2a6409320ded4da8b6d5a2d180179a4c2befaf546f157",
-      "role": "superadmin",
-      "active": true
-    },
-    {
-      "username": "FCC003",
-      "display_name": "Milo Cruspero",
-      "password_hash": "994ebb732c477129b4bf9df9572775ca68d01abd8dd5110cc617d08e65f26ec7",
-      "role": "superadmin",
-      "active": true
-    },
-    {
-      "username": "KMO004",
-      "display_name": "Kristel Olaco",
-      "password_hash": "e4278a25efdda54567945c3be8555d650fd9bbcb872f737b0c92a2bae98d0ecb",
-      "role": "superadmin",
-      "active": true
-    },
-    {
-      "username": "JTM005",
-      "display_name": "Jadd",
-      "password_hash": "6a4cbbbe989b658c2bfd610a57ed725c2be7827986d33c8078180fb2c34f81fc",
+      "username": "AZ003",
+      "display_name": "Ashley Zambarrano",
+      "password_hash": "609699beb12baf15f1cf457c6b8315fc7ddb6c9581ecfd1cb4d367285417456c",
       "role": "employee",
+      "active": true
+    },
+    {
+      "username": "USR004",
+      "display_name": "MISSING_USER_004",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "JSM005",
+      "display_name": "Admin Jay",
+      "password_hash": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+      "role": "admin",
       "active": true
     },
     {
@@ -45,17 +45,192 @@
       "active": true
     },
     {
-      "username": "PB008",
+      "username": "JTM007",
+      "display_name": "Jadd",
+      "password_hash": "6a4cbbbe989b658c2bfd610a57ed725c2be7827986d33c8078180fb2c34f81fc",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "USR008",
+      "display_name": "MISSING_USER_008",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "USR009",
+      "display_name": "MISSING_USER_009",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "USR010",
+      "display_name": "MISSING_USER_010",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "USR011",
+      "display_name": "MISSING_USER_011",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "EJL012",
+      "display_name": "Elijah Lirios",
+      "password_hash": "1084285cbe681fb7c2e2a6409320ded4da8b6d5a2d180179a4c2befaf546f157",
+      "role": "superadmin",
+      "active": true
+    },
+    {
+      "username": "KMO013",
+      "display_name": "Kristel Olaco",
+      "password_hash": "e4278a25efdda54567945c3be8555d650fd9bbcb872f737b0c92a2bae98d0ecb",
+      "role": "superadmin",
+      "active": true
+    },
+    {
+      "username": "FCC014",
+      "display_name": "Milo Cruspero",
+      "password_hash": "994ebb732c477129b4bf9df9572775ca68d01abd8dd5110cc617d08e65f26ec7",
+      "role": "superadmin",
+      "active": true
+    },
+    {
+      "username": "PB0015",
       "display_name": "Pamela Anne",
       "password_hash": "e1001eb091b83c9188e5db14a036342bdeb7c92909a53ad0da8c8d090a7ce7e4",
       "role": "employee",
       "active": true
     },
     {
-      "username": "JPM007",
-      "display_name": "Sir JP",
-      "password_hash": "c9b255cf6dc2fd9546fd391f1f08150dfa67a63eddcc7b39b98c82f172439fa4",
-      "role": "admin",
+      "username": "AR016",
+      "display_name": "Albert Rambano",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "BF017",
+      "display_name": "Blix Foryasen",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "CO018",
+      "display_name": "Carl Ofalla",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "CC019",
+      "display_name": "Christian Caguicla",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "CM020",
+      "display_name": "Christian Manajares",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "ETL021",
+      "display_name": "Ellen Thea Lopez",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "FR022",
+      "display_name": "Francyne Rigor",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "JCA023",
+      "display_name": "JC Adamos",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "JC024",
+      "display_name": "Jerome Cuenza",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "JG025",
+      "display_name": "Jett Gonzales",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "JSM026",
+      "display_name": "Jonah Sta. Maria",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "MA027",
+      "display_name": "Mark Anthony",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "MF028",
+      "display_name": "Methusael Francisco",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "MDC029",
+      "display_name": "Miko Del Castillo",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "RSM030",
+      "display_name": "Richard Sta. Maria",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "RS031",
+      "display_name": "Rovilyn Sajol",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "VJ032",
+      "display_name": "Van Jimenez",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "VL033",
+      "display_name": "Vera Landicho",
+      "password_hash": "REPLACE_WITH_HASH",
+      "role": "employee",
       "active": true
     }
   ]
