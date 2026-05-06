@@ -142,13 +142,15 @@
 .ct-card-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 10px;
+  gap: 8px;
+  padding: 8px 12px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--bg);
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .ct-card-row svg { flex-shrink: 0; opacity: 0.5; }
@@ -628,7 +630,7 @@
 /* ── EVENTS GRID ── */
 .events-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 18px;
 }
 
