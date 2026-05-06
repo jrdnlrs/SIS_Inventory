@@ -217,56 +217,21 @@ function startCardCountdowns() {
     const callDate = el.dataset.callDate;
     const callTime = el.dataset.callTime;
 
-    function renderCardCountdown() {
-      if (!callDate || !callTime) {
-        el.innerHTML = `<div class="ct-card-notset">⏱ No call time set</div>`;
-        return;
-      }
-
-      const now    = Date.now();
-      const target = parseCallDateTime(callDate, callTime);
-      const diff   = target - now;
-
-      if (isNaN(diff)) {
-        el.innerHTML = `<div class="ct-card-notset">⏱ No call time set</div>`;
-        return;
-      }
-
-      if (diff <= 0) {
-        el.innerHTML = `<div class="ct-card-past">✓ Call time passed</div>`;
-        return;
-      }
-
-      const days  = Math.floor(diff / 86400000);
-      const hours = Math.floor((diff % 86400000) / 3600000);
-      const mins  = Math.floor((diff % 3600000) / 60000);
-      const secs  = Math.floor((diff % 60000) / 1000);
-
-      const urgency = diff < 3600000 ? 'urgent'
-                    : diff < 86400000 ? 'soon'
-                    : 'normal';
-
-      const parts = [];
-      if (days > 0)  parts.push(`<span class="ct-card-num">${days}</span><span class="ct-card-lbl">d</span>`);
-      parts.push(`<span class="ct-card-num">${String(hours).padStart(2,'0')}</span><span class="ct-card-lbl">h</span>`);
-      parts.push(`<span class="ct-card-num">${String(mins).padStart(2,'0')}</span><span class="ct-card-lbl">m</span>`);
-      parts.push(`<span class="ct-card-num ct-card-secs">${String(secs).padStart(2,'0')}</span><span class="ct-card-lbl">s</span>`);
-
-      el.innerHTML = `
-        <div class="ct-card-row ct-card-${urgency}">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <span class="ct-card-label-text">CALL IN</span>
-          <div class="ct-card-parts">${parts.join('')}</div>
-        </div>`;
+    if (!callDate || !callTime) {
+      el.innerHTML = `<div class="ct-card-notset">⏱ No call time set</div>`;
+      return;
     }
 
-    renderCardCountdown();
-    // Only tick upcoming cards
-    const t = setInterval(() => {
-      if (!document.getElementById(el.id)) { clearInterval(t); return; }
-      renderCardCountdown();
-    }, 1000);
-    _cardCountdownTimers.push(t);
+    const formattedDate = formatDisplayDate(callDate);
+    const formattedTime = formatDisplayTime(callTime);
+
+    el.innerHTML = `
+      <div class="ct-card-row ct-card-normal">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span class="ct-card-label-text">CALL TIME</span>
+        <span style="margin-left:4px;font-size:12px;font-weight:700;color:var(--accent-bright);">${formattedTime}</span>
+        <span style="margin-left:4px;font-size:10px;color:var(--text-muted);">${formattedDate}</span>
+      </div>`;
   });
 }
 
@@ -360,76 +325,24 @@ function startCallTimeCountdown(callDate, callTime, targetId = 'countdownTarget'
     return;
   }
 
-  function tick() {
-    const now    = Date.now();
-    const target = parseCallDateTime(callDate, callTime);
-    const diff   = target - now;
-
-    // Re-query in case DOM was replaced (card re-renders)
-    const el2 = document.getElementById(targetId);
-    if (!el2) { clearCountdown(); return; }
-
-    if (diff <= 0) {
-      const absDiff   = Math.abs(diff);
-      const totalMins = Math.floor(absDiff / 60000);
-      const hrs  = Math.floor(totalMins / 60);
-      const mins = totalMins % 60;
-      el2.innerHTML = `
-        <div class="ct-past">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          Call time passed ${hrs > 0 ? hrs + 'h ' : ''}${mins}m ago
-        </div>`;
-      clearCountdown();
-      return;
-    }
-
-    const days  = Math.floor(diff / 86400000);
-    const hours = Math.floor((diff % 86400000) / 3600000);
-    const mins  = Math.floor((diff % 3600000) / 60000);
-    const secs  = Math.floor((diff % 60000) / 1000);
-
-    const urgency = diff < 3600000 ? 'urgent'
-                  : diff < 86400000 ? 'soon'
-                  : 'normal';
-
-    const daysBlock = days > 0 ? `
-      <div class="ct-unit">
-        <span class="ct-num">${String(days).padStart(2,'0')}</span>
-        <span class="ct-label">Days</span>
+  el.innerHTML = `
+    <div class="ct-header">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      CALL TIME
+    </div>
+    <div class="ct-units ct-normal" style="justify-content:center;">
+      <div class="ct-unit" style="align-items:center;">
+        <span class="ct-num" style="font-size:2rem;letter-spacing:1px;">${formatDisplayTime(callTime)}</span>
+        <span class="ct-label">Required Arrival</span>
       </div>
-      <div class="ct-sep">:</div>` : '';
-
-    el2.innerHTML = `
-      <div class="ct-header">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        CALL TIME COUNTDOWN
-      </div>
-      <div class="ct-units ct-${urgency}">
-        ${daysBlock}
-        <div class="ct-unit">
-          <span class="ct-num">${String(hours).padStart(2,'0')}</span>
-          <span class="ct-label">Hours</span>
-        </div>
-        <div class="ct-sep">:</div>
-        <div class="ct-unit">
-          <span class="ct-num">${String(mins).padStart(2,'0')}</span>
-          <span class="ct-label">Mins</span>
-        </div>
-        <div class="ct-sep">:</div>
-        <div class="ct-unit">
-          <span class="ct-num ct-secs">${String(secs).padStart(2,'0')}</span>
-          <span class="ct-label">Secs</span>
-        </div>
-      </div>
-      <div class="ct-target-label">
-        Required arrival by <strong>${formatDisplayTime(callTime)}</strong>
-        on <strong>${formatDisplayDate(callDate)}</strong>
-      </div>`;
-  }
-
-  tick();
-  _countdownInterval = setInterval(tick, 1000);
+    </div>
+    <div class="ct-target-label">
+      Be at the venue by <strong>${formatDisplayTime(callTime)}</strong>
+      on <strong>${formatDisplayDate(callDate)}</strong>
+    </div>`;
 }
+
+
 
 // ── EVENT TIME-IN TRACKING ───────────────────
 const EVENT_TIMEIN_URL = `${SUPABASE_URL}/rest/v1/event_timein_logs`;
