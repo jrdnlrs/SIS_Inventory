@@ -1580,14 +1580,17 @@ async function runEventPayroll() {
         }
       }
 
-      const salary   = dailyRate > 0 ? dailyRate.toLocaleString('en-PH', { minimumFractionDigits: 2 }) : '—';
-      const lateDed  = lateDeduction > 0 ? lateDeduction.toLocaleString('en-PH', { minimumFractionDigits: 2 }) : '—';
+      const netSalary = dailyRate > 0 ? Math.round((dailyRate - lateDeduction) * 100) / 100 : 0;
+      const salary    = dailyRate > 0 ? dailyRate.toLocaleString('en-PH', { minimumFractionDigits: 2 }) : '—';
+      const lateDed   = lateDeduction > 0 ? lateDeduction.toLocaleString('en-PH', { minimumFractionDigits: 2 }) : '—';
+      const netStr    = netSalary > 0 ? netSalary.toLocaleString('en-PH', { minimumFractionDigits: 2 }) : '—';
 
       return [
         u.display_name,
         eventDateLabel,
         dailyRate > 0 ? `₱${salary}` : '—',
         lateDeduction > 0 ? `₱${lateDed}` : '—',
+        netSalary > 0 ? `₱${netStr}` : '—',
         '' // signature — left blank for physical signing
       ];
     });
@@ -1596,90 +1599,91 @@ async function runEventPayroll() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
-    const pageW  = doc.internal.pageSize.getWidth();
-    const pad    = 14;
+    const pageW = doc.internal.pageSize.getWidth();
+    const pad   = 14;
+    const ink   = [30, 30, 30];
+    const muted = [120, 120, 120];
+    const rule  = [210, 210, 210];
 
-    // Header
-    doc.setFillColor(8, 12, 20);
-    doc.rect(0, 0, pageW, 22, 'F');
+    // White background
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, pageW, doc.internal.pageSize.getHeight(), 'F');
 
+    // Company name
+    let y = 16;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(96, 165, 250); // accent-bright
-    doc.text('SUPREME INFOTECH SOLUTIONS', pad, 10);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(107, 127, 163); // text-muted
-    doc.text('Event Payroll Report', pad, 16);
-
-    // Event info strip
-    doc.setFillColor(13, 19, 32);
-    doc.rect(0, 22, pageW, 14, 'F');
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(232, 237, 245);
-    doc.text((ev.event_name || 'Untitled Event').toUpperCase(), pad, 30);
+    doc.setFontSize(13);
+    doc.setTextColor(...ink);
+    doc.text('Supreme InfoTech Solutions', pad, y);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.setTextColor(107, 127, 163);
-    const metaParts = [
-      ev.sport ? ev.sport.toUpperCase() : '',
-      ev.venue ? `Venue: ${ev.venue}` : '',
-      `Event Date: ${eventDateLabel}`,
-      ev.call_time ? `Call Time: ${ev.call_time}` : '',
-    ].filter(Boolean).join('   |   ');
-    doc.text(metaParts, pad, 34);
+    doc.setTextColor(...muted);
+    doc.text('Event Payroll Report', pad, y + 6);
 
-    // Generated timestamp
-    doc.setFontSize(7);
-    doc.setTextColor(107, 127, 163);
-    const genLabel = `Generated: ${new Date().toLocaleString('en-PH')}`;
-    doc.text(genLabel, pageW - pad, 34, { align: 'right' });
+    // Generated timestamp (right-aligned)
+    doc.setFontSize(7.5);
+    doc.setTextColor(...muted);
+    doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, pageW - pad, y + 6, { align: 'right' });
+
+    // Divider
+    y += 12;
+    doc.setDrawColor(...rule);
+    doc.setLineWidth(0.4);
+    doc.line(pad, y, pageW - pad, y);
+    y += 6;
+
+    // Event name + meta
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(...ink);
+    doc.text(ev.event_name || 'Untitled Event', pad, y);
+
+    const metaParts = [
+      ev.sport ? ev.sport.charAt(0).toUpperCase() + ev.sport.slice(1) : '',
+      ev.venue ? `Venue: ${ev.venue}` : '',
+      `Date: ${eventDateLabel}`,
+      ev.call_time ? `Call Time: ${formatDisplayTime(ev.call_time)}` : '',
+    ].filter(Boolean).join('   ·   ');
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...muted);
+    doc.text(metaParts, pad, y + 6);
 
     // Table
     doc.autoTable({
-      startY: 40,
-      head: [['Employee Name', 'Event Date', 'Salary (Daily Rate)', 'Late Deduction', 'Signature']],
+      startY: y + 14,
+      head: [['Employee Name', 'Event Date', 'Daily Rate', 'Late Deduction', 'Net Salary', 'Signature']],
       body: tableRows,
       margin: { left: pad, right: pad },
       styles: {
         font: 'helvetica',
         fontSize: 9,
         cellPadding: { top: 5, bottom: 5, left: 5, right: 5 },
-        lineColor: [30, 45, 69],
+        lineColor: rule,
         lineWidth: 0.3,
-        textColor: [232, 237, 245],
-        fillColor: [13, 19, 32],
+        textColor: ink,
+        fillColor: [255, 255, 255],
       },
       headStyles: {
-        fillColor: [17, 24, 39],
-        textColor: [96, 165, 250],
+        fillColor: [245, 245, 245],
+        textColor: ink,
         fontStyle: 'bold',
         fontSize: 8,
         halign: 'center',
-        lineColor: [42, 63, 96],
+        lineColor: rule,
       },
       alternateRowStyles: {
-        fillColor: [10, 16, 26],
+        fillColor: [250, 250, 250],
       },
       columnStyles: {
-        0: { cellWidth: 55, fontStyle: 'bold', textColor: [232, 237, 245] },
-        1: { cellWidth: 40, halign: 'center' },
-        2: { cellWidth: 38, halign: 'right', textColor: [52, 211, 153] },
-        3: { cellWidth: 38, halign: 'right', textColor: [248, 113, 113] },
-        4: { cellWidth: 'auto', minCellHeight: 14 },
-      },
-      didParseCell(data) {
-        // Absent employees — dim the row
-        if (data.row.index >= 0 && data.section === 'body') {
-          const salary = data.row.raw[2];
-          if (salary === '—' && data.column.index === 2) {
-            data.cell.styles.textColor = [58, 74, 106];
-          }
-        }
+        0: { cellWidth: 55, fontStyle: 'bold' },
+        1: { cellWidth: 38, halign: 'center' },
+        2: { cellWidth: 34, halign: 'right' },
+        3: { cellWidth: 34, halign: 'right' },
+        4: { cellWidth: 34, halign: 'right', fontStyle: 'bold' },
+        5: { cellWidth: 'auto', minCellHeight: 14 },
       },
     });
 
@@ -1688,11 +1692,11 @@ async function runEventPayroll() {
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       const y = doc.internal.pageSize.getHeight() - 7;
-      doc.setDrawColor(30, 45, 69);
+      doc.setDrawColor(...rule);
       doc.setLineWidth(0.3);
       doc.line(pad, y - 2, pageW - pad, y - 2);
       doc.setFontSize(7);
-      doc.setTextColor(58, 74, 106);
+      doc.setTextColor(...muted);
       doc.text('Supreme InfoTech Solutions — Confidential', pad, y);
       doc.text(`Page ${i} of ${pageCount}`, pageW - pad, y, { align: 'right' });
     }
