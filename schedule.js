@@ -430,6 +430,176 @@ function startCallTimeCountdown(callDate, callTime, targetId = 'countdownTarget'
   _countdownInterval = setInterval(tick, 1000);
 }
 
+// ── EVENT TIME-IN TRACKING ───────────────────
+const EVENT_TIMEIN_URL = `${SUPABASE_URL}/rest/v1/event_timein_logs`;
+
+// Load existing time-in record for the current user + event
+async function loadMyTimeInRecord(eventId) {
+  if (!_session) return null;
+  try {
+    const rows = await dbGet(
+      `${EVENT_TIMEIN_URL}?event_id=eq.${eventId}&username=eq.${_session.username}&select=*&limit=1`
+    );
+    return rows[0] || null;
+  } catch { return null; }
+}
+
+// Load ALL time-in records for an event (admin view)
+async function loadAllTimeInRecords(eventId) {
+  try {
+    return await dbGet(`${EVENT_TIMEIN_URL}?event_id=eq.${eventId}&select=*&order=time_in.asc`);
+  } catch { return []; }
+}
+
+// Clock in
+async function clockInToEvent(eventId) {
+  const btn = document.getElementById('timeInBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Clocking in…'; }
+  try {
+    await dbPost(EVENT_TIMEIN_URL, {
+      event_id:  eventId,
+      username:  _session.username,
+      name:      _session.display_name,
+      time_in:   new Date().toISOString(),
+      time_out:  null,
+    });
+    await refreshTimeInPanel(eventId);
+    toast('Clocked in successfully!', 'success');
+  } catch (e) {
+    toast('Clock-in failed. ' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Clock In'; }
+  }
+}
+
+// Clock out
+async function clockOutFromEvent(eventId, recordId) {
+  const btn = document.getElementById('timeOutBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Clocking out…'; }
+  try {
+    await dbPatch(`${EVENT_TIMEIN_URL}?id=eq.${recordId}`, {
+      time_out: new Date().toISOString(),
+    });
+    await refreshTimeInPanel(eventId);
+    toast('Clocked out successfully!', 'success');
+  } catch (e) {
+    toast('Clock-out failed. ' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Clock Out'; }
+  }
+}
+
+// Refresh the time-in panel inside the open detail modal
+async function refreshTimeInPanel(eventId) {
+  const panel = document.getElementById('timeInPanel');
+  if (!panel) return;
+  panel.innerHTML = await buildTimeInPanelHTML(eventId);
+}
+
+function fmtTimeStamp(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function fmtDateStamp(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+}
+
+// Build the full Time In panel HTML (async — fetches records)
+async function buildTimeInPanelHTML(eventId) {
+  const assigned = _assignees[eventId] || [];
+  const isAssigned = assigned.includes(_session.username);
+
+  // Admins always see the attendance table; employees only see if assigned
+  if (!isAssigned && !_isAdmin) {
+    return `<div class="ti-not-assigned">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      You are not assigned to this event.
+    </div>`;
+  }
+
+  const allRecords = await loadAllTimeInRecords(eventId);
+  const myRecord   = allRecords.find(r => r.username === _session.username) || null;
+
+  // ── My clock-in section (assigned employees + admins if assigned) ──
+  let mySection = '';
+  if (isAssigned) {
+    if (!myRecord) {
+      mySection = `
+        <div class="ti-my-section">
+          <div class="ti-my-label">Your Attendance</div>
+          <div class="ti-my-status ti-status-pending">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Not yet clocked in
+          </div>
+          <button class="btn btn-primary ti-btn" id="timeInBtn" onclick="clockInToEvent('${eventId}')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Clock In
+          </button>
+        </div>`;
+    } else if (!myRecord.time_out) {
+      mySection = `
+        <div class="ti-my-section ti-active">
+          <div class="ti-my-label">Your Attendance</div>
+          <div class="ti-my-status ti-status-in">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Clocked in at <strong>${fmtTimeStamp(myRecord.time_in)}</strong>
+          </div>
+          <button class="btn ti-btn ti-btn-out" id="timeOutBtn" onclick="clockOutFromEvent('${eventId}', '${myRecord.id}')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Clock Out
+          </button>
+        </div>`;
+    } else {
+      mySection = `
+        <div class="ti-my-section ti-done">
+          <div class="ti-my-label">Your Attendance</div>
+          <div class="ti-my-status ti-status-done">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Done — In: <strong>${fmtTimeStamp(myRecord.time_in)}</strong> · Out: <strong>${fmtTimeStamp(myRecord.time_out)}</strong>
+          </div>
+        </div>`;
+    }
+  }
+
+  // ── Attendance table (all assigned employees) ──
+  const assignedUsers = _allUsers.filter(u => assigned.includes(u.username));
+  const tableRows = assignedUsers.map(u => {
+    const rec = allRecords.find(r => r.username === u.username);
+    const isMe = u.username === _session.username;
+    if (!rec) {
+      return `<div class="ti-row ti-row-absent ${isMe ? 'ti-row-me' : ''}">
+        <div class="ti-row-avatar">${initials(u.display_name)}</div>
+        <div class="ti-row-name">${escHtml(u.display_name)}${isMe ? ' <span class="ti-you-tag">you</span>' : ''}</div>
+        <div class="ti-row-time ti-absent">—</div>
+        <div class="ti-row-time ti-absent">—</div>
+      </div>`;
+    }
+    const hasOut = !!rec.time_out;
+    return `<div class="ti-row ti-row-present ${isMe ? 'ti-row-me' : ''}">
+      <div class="ti-row-avatar ti-avatar-in">${initials(u.display_name)}</div>
+      <div class="ti-row-name">${escHtml(u.display_name)}${isMe ? ' <span class="ti-you-tag">you</span>' : ''}</div>
+      <div class="ti-row-time ti-in">${fmtTimeStamp(rec.time_in)}</div>
+      <div class="ti-row-time ${hasOut ? 'ti-out' : 'ti-pending'}">${hasOut ? fmtTimeStamp(rec.time_out) : '…'}</div>
+    </div>`;
+  }).join('');
+
+  const presentCount = allRecords.length;
+  const totalCount   = assignedUsers.length;
+
+  return `
+    ${mySection}
+    <div class="ti-table-wrap">
+      <div class="ti-table-header">
+        <span>Attendance</span>
+        <span class="ti-count">${presentCount}/${totalCount} clocked in</span>
+      </div>
+      <div class="ti-table-cols">
+        <span>Employee</span><span></span><span>Time In</span><span>Time Out</span>
+      </div>
+      ${tableRows || `<div class="ti-empty">No assignees yet.</div>`}
+    </div>`;
+}
+
 // ── DETAIL MODAL ────────────────────────────
 function openDetail(eventId) {
   const ev       = _events.find(e => e.id == eventId);
@@ -503,11 +673,11 @@ function openDetail(eventId) {
         </div>
       </div>
 
-      <div class="detail-calltime-box">
-        <div id="countdownTarget" class="ct-wrapper">
-          <div class="ct-notset">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            Loading…
+      <div class="detail-calltime-box" style="padding:0;background:none;border:none;">
+        <div id="timeInPanel" class="ti-panel">
+          <div class="ti-loading">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:sa-spin 1s linear infinite"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+            Loading attendance…
           </div>
         </div>
       </div>
@@ -529,8 +699,8 @@ function openDetail(eventId) {
 
   document.getElementById('detailModalOverlay').classList.add('open');
 
-  // Start live countdown after DOM is injected
-  startCallTimeCountdown(ev.call_date || ev.event_date, ev.call_time);
+  // Load time-in panel after DOM is injected
+  refreshTimeInPanel(ev.id);
 }
 
 function closeDetailModal() {
