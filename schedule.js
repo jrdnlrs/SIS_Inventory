@@ -609,35 +609,46 @@ async function buildTimeInPanelHTML(eventId) {
   // ── Attendance table (all assigned employees) ──
   const assignedUsers = _allUsers.filter(u => assigned.includes(u.username));
 
+  // Store records in a window-level cache so onclick handlers can look them up
+  // safely — avoids ISO date strings breaking HTML attribute parsing
+  window._tiRecordCache = window._tiRecordCache || {};
+  window._tiRecordCache[eventId] = {};
+  allRecords.forEach(r => { window._tiRecordCache[eventId][r.username] = r; });
+
   // Admin rows have extra columns for actions — adjust grid accordingly
   const colsTemplate = _isAdmin
-    ? '32px 1fr 100px 100px 90px'
+    ? '32px 1fr 100px 100px 130px'
     : '32px 1fr 90px 90px';
 
   const tableRows = assignedUsers.map(u => {
     const rec  = allRecords.find(r => r.username === u.username);
     const isMe = u.username === _session.username;
 
+    // Escape username for safe use in onclick (usernames are alphanumeric codes like JSM001)
+    const safeUser = u.username.replace(/'/g, "\\'");
+    const safeEid  = String(eventId).replace(/'/g, "\\'");
+    const safeName = u.display_name.replace(/'/g, "\\'");
+
     const adminActions = _isAdmin
-      ? `<div class="ti-row-actions" style="display:flex;gap:5px;justify-content:flex-end;">
+      ? `<div style="display:flex;gap:5px;justify-content:flex-end;align-items:center;">
           ${rec
             ? `<button
                 title="Edit times"
-                onclick="openEditAttendance('${eventId}','${u.username}','${rec.id}','${rec.time_in || ''}','${rec.time_out || ''}')"
-                style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:0.3px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);color:var(--accent-bright);border-radius:5px;cursor:pointer;transition:all 0.15s;white-space:nowrap;"
-                onmouseover="this.style.background='rgba(59,130,246,0.2)'" onmouseout="this.style.background='rgba(59,130,246,0.1)'">
+                onclick="openEditAttendance('${safeEid}','${safeUser}')"
+                style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:0.3px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);color:var(--accent-bright);border-radius:5px;cursor:pointer;white-space:nowrap;transition:background 0.15s;"
+                onmouseover="this.style.background='rgba(59,130,246,0.22)'" onmouseout="this.style.background='rgba(59,130,246,0.1)'">
                 <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Edit
               </button>
               <button
                 title="Reset attendance"
-                onclick="resetAttendanceRecord('${eventId}','${rec.id}','${escHtml(u.display_name)}')"
-                style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:0.3px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);color:var(--red);border-radius:5px;cursor:pointer;transition:all 0.15s;white-space:nowrap;"
-                onmouseover="this.style.background='rgba(248,113,113,0.18)'" onmouseout="this.style.background='rgba(248,113,113,0.08)'">
+                onclick="resetAttendanceRecord('${safeEid}','${safeUser}','${safeName}')"
+                style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:0.3px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);color:var(--red);border-radius:5px;cursor:pointer;white-space:nowrap;transition:background 0.15s;"
+                onmouseover="this.style.background='rgba(248,113,113,0.2)'" onmouseout="this.style.background='rgba(248,113,113,0.08)'">
                 <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
                 Reset
               </button>`
-            : `<span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:0.5px;">not in</span>`
+            : `<span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:0.5px;">—</span>`
           }
         </div>`
       : '';
@@ -683,12 +694,14 @@ async function buildTimeInPanelHTML(eventId) {
 }
 
 // ── ADMIN: RESET ATTENDANCE RECORD ───────────
-async function resetAttendanceRecord(eventId, recordId, displayName) {
+async function resetAttendanceRecord(eventId, username, displayName) {
   if (!_isAdmin) return;
+  const rec = (window._tiRecordCache[eventId] || {})[username];
+  if (!rec) { toast('No record found to reset.', 'error'); return; }
   if (!confirm(`Reset attendance for ${displayName}? This will permanently delete their clock-in record for this event.`)) return;
 
   try {
-    await dbDelete(`${EVENT_TIMEIN_URL}?id=eq.${recordId}`);
+    await dbDelete(`${EVENT_TIMEIN_URL}?id=eq.${rec.id}`);
     toast(`Attendance reset for ${displayName}.`, 'success');
     await refreshTimeInPanel(eventId);
   } catch (e) {
@@ -697,8 +710,14 @@ async function resetAttendanceRecord(eventId, recordId, displayName) {
 }
 
 // ── ADMIN: EDIT ATTENDANCE MODAL ─────────────
-function openEditAttendance(eventId, username, recordId, rawTimeIn, rawTimeOut) {
+function openEditAttendance(eventId, username) {
   if (!_isAdmin) return;
+  const rec = (window._tiRecordCache[eventId] || {})[username];
+  if (!rec) { toast('Record not found.', 'error'); return; }
+
+  const recordId = rec.id;
+  const rawTimeIn  = rec.time_in  || '';
+  const rawTimeOut = rec.time_out || '';
 
   // Convert ISO timestamps to local datetime-local format (YYYY-MM-DDTHH:MM)
   function isoToLocal(iso) {
