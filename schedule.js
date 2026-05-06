@@ -543,7 +543,11 @@ async function buildTimeInPanelHTML(eventId) {
   }
 
   const allRecords = await loadAllTimeInRecords(eventId);
-  const myRecord   = allRecords.find(r => r.username === _session.username) || null;
+  // Robust match: username field first, display_name fallback
+  const myRecord = allRecords.find(r =>
+    (r.username && r.username === _session.username) ||
+    (r.name && r.name === _session.display_name)
+  ) || null;
 
   // ── 2-hour pre-gate check ──
   const gate = ev ? getClockInGateStatus(ev) : { allowed: true };
@@ -609,11 +613,24 @@ async function buildTimeInPanelHTML(eventId) {
   // ── Attendance table (all assigned employees) ──
   const assignedUsers = _allUsers.filter(u => assigned.includes(u.username));
 
-  // Store records in a window-level cache so onclick handlers can look them up
-  // safely — avoids ISO date strings breaking HTML attribute parsing
+  // Helper: find a record for a user — tries username match first, then display_name match
+  function findRecordForUser(u) {
+    // Prefer username match (most reliable)
+    let r = allRecords.find(r => r.username && r.username === u.username);
+    if (r) return r;
+    // Fallback: match by stored name field (covers older records written before username column existed)
+    r = allRecords.find(r => r.name && r.name === u.display_name);
+    return r || null;
+  }
+
+  // Store records in a window-level cache keyed by username so onclick handlers
+  // can look them up safely without passing ISO strings through HTML attributes
   window._tiRecordCache = window._tiRecordCache || {};
   window._tiRecordCache[eventId] = {};
-  allRecords.forEach(r => { window._tiRecordCache[eventId][r.username] = r; });
+  assignedUsers.forEach(u => {
+    const r = findRecordForUser(u);
+    if (r) window._tiRecordCache[eventId][u.username] = r;
+  });
 
   // Admin rows have extra columns for actions — adjust grid accordingly
   const colsTemplate = _isAdmin
@@ -621,7 +638,7 @@ async function buildTimeInPanelHTML(eventId) {
     : '32px 1fr 90px 90px';
 
   const tableRows = assignedUsers.map(u => {
-    const rec  = allRecords.find(r => r.username === u.username);
+    const rec  = findRecordForUser(u);
     const isMe = u.username === _session.username;
 
     // Escape username for safe use in onclick (usernames are alphanumeric codes like JSM001)
@@ -676,7 +693,7 @@ async function buildTimeInPanelHTML(eventId) {
     ? `<span></span><span></span><span>Time In</span><span>Time Out</span><span style="text-align:right;">Actions</span>`
     : `<span></span><span></span><span>Time In</span><span>Time Out</span>`;
 
-  const presentCount = allRecords.length;
+  const presentCount = assignedUsers.filter(u => findRecordForUser(u)).length;
   const totalCount   = assignedUsers.length;
 
   return `
