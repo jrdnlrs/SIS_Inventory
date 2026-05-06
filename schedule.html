@@ -13,6 +13,127 @@
    SCHEDULE PAGE — schedule.css (inline)
    ══════════════════════════════════════════ */
 
+/* ── ATTENDANCE STATUS BADGES ── */
+.ti-status-badge {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+.ti-status-ontime {
+  background: rgba(52,211,153,0.10);
+  color: var(--green, #34d399);
+  border: 1px solid rgba(52,211,153,0.22);
+}
+.ti-status-late {
+  background: rgba(248,113,113,0.10);
+  color: var(--red, #f87171);
+  border: 1px solid rgba(248,113,113,0.25);
+}
+.ti-status-absent {
+  background: rgba(100,116,139,0.10);
+  color: var(--text-muted, #64748b);
+  border: 1px solid rgba(100,116,139,0.18);
+}
+
+/* ── ATTENDANCE EXPAND BUTTON ── */
+.ti-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--accent-bright);
+  background: rgba(59,130,246,0.08);
+  border: 1px solid rgba(59,130,246,0.2);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.ti-expand-btn:hover {
+  background: rgba(59,130,246,0.18);
+  border-color: rgba(59,130,246,0.4);
+}
+
+/* ── ATTENDANCE FULLSCREEN OVERLAY ── */
+#attendanceExpandOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.82);
+  backdrop-filter: blur(6px);
+  z-index: 3000;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+#attendanceExpandOverlay.open {
+  display: flex;
+}
+.ti-expand-modal {
+  background: var(--surface);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 900px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+  overflow: hidden;
+}
+.ti-expand-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+  flex-shrink: 0;
+}
+.ti-expand-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ti-expand-close {
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.ti-expand-close:hover { color: var(--text); background: var(--surface); }
+.ti-expand-body {
+  overflow-y: auto;
+  flex: 1;
+}
+.ti-expand-body::-webkit-scrollbar { width: 4px; }
+.ti-expand-body::-webkit-scrollbar-track { background: transparent; }
+.ti-expand-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
 /* ── CARD COUNTDOWN (inline on flashcard) ── */
 .event-card-countdown {
   margin: 2px 0 6px;
@@ -220,7 +341,6 @@
 
 .ti-table-cols {
   display: grid;
-  grid-template-columns: 32px 1fr 90px 90px;
   gap: 0;
   padding: 6px 14px;
   background: var(--surface2);
@@ -230,11 +350,23 @@
   text-transform: uppercase;
   letter-spacing: 1.2px;
   color: var(--text-muted);
+  align-items: center;
+}
+
+.ti-table-cols span {
+  text-align: center;
+}
+
+.ti-table-cols span:nth-child(2) {
+  text-align: left;
+}
+
+.ti-table-cols span:last-child {
+  text-align: right;
 }
 
 .ti-row {
   display: grid;
-  grid-template-columns: 32px 1fr 90px 90px;
   align-items: center;
   gap: 0;
   padding: 10px 14px;
@@ -1433,6 +1565,23 @@
 <div class="event-modal-overlay" id="detailModalOverlay">
   <div class="detail-modal" id="detailModalInner">
     <!-- Populated dynamically -->
+  </div>
+</div>
+
+<!-- ATTENDANCE FULLSCREEN OVERLAY -->
+<div id="attendanceExpandOverlay">
+  <div class="ti-expand-modal">
+    <div class="ti-expand-header">
+      <div class="ti-expand-title">
+        <span style="width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);display:inline-block;flex-shrink:0;"></span>
+        Attendance
+        <span id="attendanceExpandCount" class="ti-count"></span>
+      </div>
+      <button class="ti-expand-close" onclick="closeAttendanceExpand()">✕</button>
+    </div>
+    <div class="ti-expand-body" id="attendanceExpandBody">
+      <!-- populated by JS -->
+    </div>
   </div>
 </div>
 
