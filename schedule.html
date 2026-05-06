@@ -339,6 +339,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  overflow-x: auto;
   margin-bottom: 6px;
 }
 
@@ -1117,7 +1118,7 @@
   border: 1px solid var(--border-bright);
   border-radius: var(--radius-lg);
   width: 100%;
-  max-width: 800px;
+  max-width: 620px;
   max-height: 92vh;
   overflow-y: auto;
   box-shadow: 0 24px 80px rgba(0,0,0,0.5);
@@ -1204,10 +1205,16 @@
 
 .detail-info-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
   margin-bottom: 20px;
 }
+
+/* Make the last item (status) span 1 col naturally — no special span needed */
+.detail-info-grid .detail-info-item:last-child:nth-child(3n+1) {
+  grid-column: 1 / -1;
+}
+
 
 .detail-info-item {
   background: var(--surface2);
