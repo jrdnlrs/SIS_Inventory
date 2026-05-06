@@ -15,14 +15,11 @@
 
 /* ── SPORT ICON COLOURS ── */
 :root {
-  --sport-basketball: #fb923c;
-  --sport-volleyball:  #a78bfa;
-  --sport-football:    #34d399;
-  --sport-baseball:    #fbbf24;
-  --sport-tennis:      #f87171;
-  --sport-swimming:    #38bdf8;
-  --sport-badminton:   #4ade80;
-  --sport-generic:     #60a5fa;
+  --sport-golf:       #4ade80;
+  --sport-baseball:   #fbbf24;
+  --sport-tennis:     #f87171;
+  --sport-volleyball: #a78bfa;
+  --sport-carracing:  #fb923c;
 }
 
 /* ── PAGE HEADER BAR ── */
@@ -803,13 +800,11 @@
 }
 
 /* ── SPORT COLOUR HELPERS (applied via JS) ── */
-[data-sport-color="basketball"] { --sport-color: var(--sport-basketball); }
-[data-sport-color="volleyball"]  { --sport-color: var(--sport-volleyball); }
-[data-sport-color="football"]    { --sport-color: var(--sport-football); }
-[data-sport-color="baseball"]    { --sport-color: var(--sport-baseball); }
-[data-sport-color="tennis"]      { --sport-color: var(--sport-tennis); }
-[data-sport-color="swimming"]    { --sport-color: var(--sport-swimming); }
-[data-sport-color="badminton"]   { --sport-color: var(--sport-badminton); }
+[data-sport-color="golf"]       { --sport-color: var(--sport-golf); }
+[data-sport-color="baseball"]   { --sport-color: var(--sport-baseball); }
+[data-sport-color="tennis"]     { --sport-color: var(--sport-tennis); }
+[data-sport-color="volleyball"] { --sport-color: var(--sport-volleyball); }
+[data-sport-color="carracing"]  { --sport-color: var(--sport-carracing); }
 
 /* ── RESPONSIVE ── */
 @media (max-width: 640px) {
@@ -931,14 +926,11 @@
           <label>Sport <span style="color:var(--red)">*</span></label>
           <select id="fSport">
             <option value="">— Select sport —</option>
-            <option value="basketball">🏀 Basketball</option>
-            <option value="volleyball">🏐 Volleyball</option>
-            <option value="football">⚽ Football</option>
+            <option value="golf">⛳ Golf</option>
             <option value="baseball">⚾ Baseball</option>
             <option value="tennis">🎾 Tennis</option>
-            <option value="swimming">🏊 Swimming</option>
-            <option value="badminton">🏸 Badminton</option>
-            <option value="other">🏆 Other</option>
+            <option value="volleyball">🏐 Volleyball</option>
+            <option value="car racing">🏎️ Car Racing</option>
           </select>
         </div>
       </div>

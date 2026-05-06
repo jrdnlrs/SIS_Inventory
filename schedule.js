@@ -52,25 +52,19 @@ let _selectedAssignees = new Set();
 
 // ── SPORT CONFIG ───────────────────────────
 const SPORT_EMOJI = {
-  basketball: '🏀',
-  volleyball:  '🏐',
-  football:    '⚽',
+  golf:        '⛳',
   baseball:    '⚾',
   tennis:      '🎾',
-  swimming:    '🏊',
-  badminton:   '🏸',
-  other:       '🏆',
+  volleyball:  '🏐',
+  'car racing':'🏎️',
 };
 
 const SPORT_COLOR_KEY = {
-  basketball: 'basketball',
-  volleyball:  'volleyball',
-  football:    'football',
+  golf:        'golf',
   baseball:    'baseball',
   tennis:      'tennis',
-  swimming:    'swimming',
-  badminton:   'badminton',
-  other:       '',
+  volleyball:  'volleyball',
+  'car racing':'carracing',
 };
 
 // ── TOAST ──────────────────────────────────
@@ -367,13 +361,11 @@ function getCssVar(colorKey) {
 function getCssVarAlpha(colorKey, alpha) {
   // Returns approximate hex for box-shadow glow
   const map = {
-    basketball: `rgba(251,146,60,${alpha})`,
-    volleyball:  `rgba(167,139,250,${alpha})`,
-    football:    `rgba(52,211,153,${alpha})`,
+    golf:        `rgba(74,222,128,${alpha})`,
     baseball:    `rgba(251,191,36,${alpha})`,
     tennis:      `rgba(248,113,113,${alpha})`,
-    swimming:    `rgba(56,189,248,${alpha})`,
-    badminton:   `rgba(74,222,128,${alpha})`,
+    volleyball:  `rgba(167,139,250,${alpha})`,
+    carracing:   `rgba(251,146,60,${alpha})`,
   };
   return map[colorKey] || `rgba(96,165,250,${alpha})`;
 }
