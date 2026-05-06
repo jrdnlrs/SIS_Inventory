@@ -1604,7 +1604,7 @@
         <span id="attendanceExpandCount" class="ti-count"></span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
-        <button id="runPayrollBtn" class="btn btn-primary" style="display:flex;align-items:center;gap:7px;padding:7px 16px;font-size:13px;font-weight:700;letter-spacing:0.3px;">
+        <button id="runPayrollBtn" class="btn btn-primary" onclick="runEventPayroll()" style="display:flex;align-items:center;gap:7px;padding:7px 16px;font-size:13px;font-weight:700;letter-spacing:0.3px;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
           Run Payroll
         </button>
@@ -1620,6 +1620,8 @@
 <!-- TOAST -->
 <div class="toast-container" id="toastContainer"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 <script src="config.js"></script>
 <script src="auth.js"></script>
 <script src="schedule.js"></script>
