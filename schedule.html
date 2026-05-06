@@ -630,8 +630,9 @@
 /* ── EVENTS GRID ── */
 .events-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 18px;
+  align-items: stretch;
 }
 
 /* ── EVENT FLASHCARD ── */
@@ -645,6 +646,7 @@
   transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
   display: flex;
   flex-direction: column;
+  height: 100%;
 }
 
 .event-card:hover {
@@ -770,7 +772,7 @@
 }
 
 .event-assigned-count {
-  margin-top: 10px;
+  margin-top: auto;
   padding-top: 10px;
   border-top: 1px solid var(--border);
   display: flex;
