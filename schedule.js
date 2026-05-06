@@ -588,11 +588,11 @@ async function buildTimeInPanelHTML(eventId) {
       if (!gate.allowed) {
         // Too early — show locked state with countdown
         mySection = `
-          <div class="ti-my-section" style="border-color:rgba(251,191,36,0.25);background:rgba(251,191,36,0.04);flex-wrap:wrap;gap:10px;">
+          <div class="ti-my-section" style="border-color:rgba(251,191,36,0.25);background:rgba(251,191,36,0.04);flex-wrap:wrap;row-gap:8px;">
             <div class="ti-my-label">Your Attendance</div>
-            <div class="ti-my-status" style="color:#fbbf24;gap:6px;flex:1;min-width:180px;flex-wrap:wrap;">
+            <div class="ti-my-status" style="color:#fbbf24;gap:6px;flex:1;min-width:200px;flex-wrap:wrap;">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-              Clock-in opens in <strong style="font-family:'JetBrains Mono',monospace;margin:0 3px;">${fmtMinutesUntilOpen(gate.minutesUntil)}</strong>
+              <span>Clock-in opens in <strong style="font-family:'JetBrains Mono',monospace;margin:0 2px;">${fmtMinutesUntilOpen(gate.minutesUntil)}</strong></span>
               <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);">(2 hrs before call time)</span>
             </div>
             <button class="btn ti-btn" disabled style="opacity:0.4;cursor:not-allowed;background:var(--surface3);border:1px solid var(--border);color:var(--text-muted);flex-shrink:0;">
@@ -672,8 +672,8 @@ async function buildTimeInPanelHTML(eventId) {
   // Admin rows have extra columns for actions — adjust grid accordingly
   // Golf: avatar | name | hole | time-in | time-out | status | [actions]
   const colsTemplate = isGolf
-    ? (_isAdmin ? '28px 1fr 44px 76px 76px 90px 110px' : '28px 1fr 44px 72px 72px 88px')
-    : (_isAdmin ? '28px 1fr 76px 76px 90px 110px'      : '28px 1fr 72px 72px 88px');
+    ? (_isAdmin ? '28px 1fr 40px 68px 68px 80px 90px' : '28px 1fr 40px 72px 72px 84px')
+    : (_isAdmin ? '28px 1fr 68px 68px 80px 90px'      : '28px 1fr 72px 72px 84px');
 
   const tableRows = assignedUsers.map(u => {
     const rec  = findRecordForUser(u);
@@ -754,7 +754,7 @@ async function buildTimeInPanelHTML(eventId) {
 
   return `
     ${mySection}
-    <div class="ti-table-wrap" style="overflow-x:auto;">
+    <div class="ti-table-wrap">
       <div class="ti-table-header">
         <span>Attendance</span>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
@@ -765,11 +765,11 @@ async function buildTimeInPanelHTML(eventId) {
           </button>
         </div>
       </div>
-      <div style="min-width:max-content;">
-        <div class="ti-table-cols" style="grid-template-columns:${colsTemplate};">
+      <div style="overflow-x:auto;">
+        <div class="ti-table-cols" style="grid-template-columns:${colsTemplate};min-width:max-content;">
           ${colHeaders}
         </div>
-        ${tableRows || '<div class="ti-empty">No assignees yet.</div>'}
+        <div style="min-width:max-content;">${tableRows || '<div class="ti-empty">No assignees yet.</div>'}</div>
       </div>
     </div>`;
 }
@@ -1133,7 +1133,7 @@ function openDetail(eventId) {
         </div>
         <div class="detail-info-item">
           <div class="detail-info-label">Match Date</div>
-          <div class="detail-info-val accent" style="display:flex;align-items:center;flex-wrap:wrap;gap:5px;">${formatDisplayDate(ev.event_date)}${ev.call_date && ev.call_date !== ev.event_date ? ' <span style="font-size:10px;font-family:\'JetBrains Mono\',monospace;background:rgba(251,191,36,0.12);color:#fbbf24;padding:1px 7px;border-radius:4px;">OVERNIGHT</span>' : ''}</div>
+          <div class="detail-info-val accent" style="display:flex;align-items:center;flex-wrap:wrap;gap:5px;">${formatDisplayDate(ev.event_date)}${ev.call_date && ev.call_date !== ev.event_date ? ' <span style="font-size:10px;font-family:\'JetBrains Mono\',monospace;background:rgba(251,191,36,0.12);color:#fbbf24;padding:1px 7px;border-radius:4px;vertical-align:middle;margin-left:4px;">OVERNIGHT</span>' : ''}</div>
         </div>
         <div class="detail-info-item">
           <div class="detail-info-label">Venue</div>
