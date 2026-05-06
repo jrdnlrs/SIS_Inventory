@@ -13,7 +13,115 @@
    SCHEDULE PAGE — schedule.css (inline)
    ══════════════════════════════════════════ */
 
-/* ── SPORT ICON COLOURS ── */
+/* ── CALL TIME COUNTDOWN ── */
+.ct-wrapper {
+  width: 100%;
+}
+
+.ct-notset, .ct-past {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 4px 0;
+}
+
+.ct-past {
+  color: var(--green);
+}
+
+.ct-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.ct-units {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.ct-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 46px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 6px 6px;
+}
+
+.ct-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent-bright);
+  transition: color 0.2s;
+}
+
+.ct-secs {
+  color: var(--text-muted);
+  font-size: 20px;
+}
+
+.ct-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+
+.ct-sep {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--border-bright);
+  padding-bottom: 14px;
+  user-select: none;
+}
+
+/* Urgency states */
+.ct-units.ct-soon    .ct-num { color: #fbbf24; }
+.ct-units.ct-soon    .ct-unit { border-color: rgba(251,191,36,0.25); }
+.ct-units.ct-urgent  .ct-num { color: var(--red); }
+.ct-units.ct-urgent  .ct-unit {
+  border-color: rgba(248,113,113,0.35);
+  background: rgba(248,113,113,0.04);
+  animation: urgentPulse 1s ease-in-out infinite;
+}
+.ct-units.ct-normal  .ct-unit { border-color: rgba(59,130,246,0.25); }
+
+@keyframes urgentPulse {
+  0%, 100% { border-color: rgba(248,113,113,0.35); }
+  50%       { border-color: rgba(248,113,113,0.7); }
+}
+
+.ct-target-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.2px;
+}
+
+.ct-target-label strong {
+  color: var(--text);
+}
+
 :root {
   --sport-golf:       #4ade80;
   --sport-baseball:   #fbbf24;

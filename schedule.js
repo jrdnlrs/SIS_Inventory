@@ -246,6 +246,104 @@ function buildCard(ev) {
     </div>`;
 }
 
+// ── CALL TIME COUNTDOWN ─────────────────────
+let _countdownInterval = null;
+
+function clearCountdown() {
+  if (_countdownInterval) { clearInterval(_countdownInterval); _countdownInterval = null; }
+}
+
+/**
+ * Builds and auto-ticks a countdown to the call time.
+ * callDate: "YYYY-MM-DD", callTime: "HH:MM"
+ * Injects live DOM into the element with id=`countdownTarget`
+ */
+function startCallTimeCountdown(callDate, callTime) {
+  clearCountdown();
+
+  const el = document.getElementById('countdownTarget');
+  if (!el) return;
+
+  if (!callDate || !callTime) {
+    el.innerHTML = `
+      <div class="ct-notset">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Call time not set
+      </div>`;
+    return;
+  }
+
+  function tick() {
+    const now        = Date.now();
+    const target     = new Date(`${callDate}T${callTime}:00`).getTime();
+    const diff       = target - now;
+
+    if (!document.getElementById('countdownTarget')) { clearCountdown(); return; }
+
+    if (diff <= 0) {
+      // Past — show elapsed or "now"
+      const absDiff = Math.abs(diff);
+      const totalMins = Math.floor(absDiff / 60000);
+      const hrs  = Math.floor(totalMins / 60);
+      const mins = totalMins % 60;
+      el.innerHTML = `
+        <div class="ct-past">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Call time passed ${hrs > 0 ? hrs + 'h ' : ''}${mins}m ago
+        </div>`;
+      clearCountdown();
+      return;
+    }
+
+    const days  = Math.floor(diff / 86400000);
+    const hours = Math.floor((diff % 86400000) / 3600000);
+    const mins  = Math.floor((diff % 3600000) / 60000);
+    const secs  = Math.floor((diff % 60000) / 1000);
+
+    // Urgency level
+    const urgency = diff < 3600000 ? 'urgent'   // < 1 hour
+                  : diff < 86400000 ? 'soon'     // < 1 day
+                  : 'normal';
+
+    const daysBlock = days > 0 ? `
+      <div class="ct-unit">
+        <span class="ct-num">${String(days).padStart(2,'0')}</span>
+        <span class="ct-label">Days</span>
+      </div>
+      <div class="ct-sep">:</div>` : '';
+
+    el.innerHTML = `
+      <div class="ct-header">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        CALL TIME COUNTDOWN
+      </div>
+      <div class="ct-units ct-${urgency}">
+        ${daysBlock}
+        <div class="ct-unit">
+          <span class="ct-num">${String(hours).padStart(2,'0')}</span>
+          <span class="ct-label">Hours</span>
+        </div>
+        <div class="ct-sep">:</div>
+        <div class="ct-unit">
+          <span class="ct-num">${String(mins).padStart(2,'0')}</span>
+          <span class="ct-label">Mins</span>
+        </div>
+        <div class="ct-sep">:</div>
+        <div class="ct-unit">
+          <span class="ct-num ct-secs">${String(secs).padStart(2,'0')}</span>
+          <span class="ct-label">Secs</span>
+        </div>
+      </div>
+      <div class="ct-target-label">
+        Required arrival by <strong>${formatDisplayTime(callTime)}</strong>
+        on <strong>${formatDisplayDate(callDate)}</strong>
+      </div>`;
+  }
+
+  tick();
+  _countdownInterval = setInterval(tick, 1000);
+}
+
 // ── DETAIL MODAL ────────────────────────────
 function openDetail(eventId) {
   const ev       = _events.find(e => e.id == eventId);
@@ -320,12 +418,11 @@ function openDetail(eventId) {
       </div>
 
       <div class="detail-calltime-box">
-        <div class="detail-calltime-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        </div>
-        <div class="detail-calltime-text">
-          <strong>${ev.call_time ? formatDisplayTime(ev.call_time) : 'Not set'}</strong>
-          <span>Call Time — Required Arrival</span>
+        <div id="countdownTarget" class="ct-wrapper">
+          <div class="ct-notset">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Loading…
+          </div>
         </div>
       </div>
 
@@ -345,15 +442,19 @@ function openDetail(eventId) {
     </div>`;
 
   document.getElementById('detailModalOverlay').classList.add('open');
+
+  // Start live countdown after DOM is injected
+  startCallTimeCountdown(ev.call_date || ev.event_date, ev.call_time);
 }
 
 function closeDetailModal() {
+  clearCountdown();
   document.getElementById('detailModalOverlay').classList.remove('open');
 }
 
 // Click-outside to close detail
 document.getElementById('detailModalOverlay').addEventListener('click', function(e) {
-  if (e.target === this) closeDetailModal();
+  if (e.target === this) { clearCountdown(); closeDetailModal(); }
 });
 
 // ── CSS VARIABLE HELPERS ────────────────────
