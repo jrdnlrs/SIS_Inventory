@@ -88,6 +88,10 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       Super Admin
     </a>
+    <a href="schedule.html" class="tab-link" id="navSchedule">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Game Schedule
+    </a>
   </nav>
 
   <!-- ══════════════════════════════════════ -->
@@ -165,18 +169,20 @@
         </div>
       </a>
 
-      <!-- Game Schedules — coming soon -->
-      <div class="module-card coming-soon">
+      <!-- Game Schedules — LIVE -->
+      <a href="schedule.html" class="module-card">
         <div class="module-card-header">
           <div class="module-icon" style="background:rgba(167,139,250,0.1);border-color:rgba(167,139,250,0.2)">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M16 2v4M8 2v4M2 10h20"/><circle cx="12" cy="15" r="2"/></svg>
           </div>
-          <span class="module-badge soon">Soon</span>
+          <span class="module-badge live">Live</span>
         </div>
         <div class="module-name">Game Schedules</div>
         <div class="module-desc">Manage and broadcast game schedules, rosters, and event timelines.</div>
-        <div class="module-coming-label">In Development</div>
-      </div>
+        <div class="module-arrow">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </div>
+      </a>
 
       <!-- Placeholder 2 -->
       <div class="module-card coming-soon">
@@ -372,11 +378,11 @@
 
     <!-- Coming soon modules visible to employees -->
     <div class="emp-coming-row">
-      <div class="emp-coming-card">
+      <a href="schedule.html" class="emp-coming-card" style="opacity:1;text-decoration:none;color:var(--text);border-color:rgba(167,139,250,0.25);transition:border-color 0.15s,box-shadow 0.15s;" onmouseover="this.style.borderColor='#a78bfa';this.style.boxShadow='0 4px 16px rgba(167,139,250,0.12)'" onmouseout="this.style.borderColor='rgba(167,139,250,0.25)';this.style.boxShadow=''">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M16 2v4M8 2v4M2 10h20"/><circle cx="12" cy="15" r="2"/></svg>
         <span>Game Schedules</span>
-        <span class="module-badge soon" style="margin-left:auto">Soon</span>
-      </div>
+        <span class="module-badge live" style="margin-left:auto">Live</span>
+      </a>
     </div>
 
   </div>
