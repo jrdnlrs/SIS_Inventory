@@ -588,14 +588,14 @@ async function buildTimeInPanelHTML(eventId) {
       if (!gate.allowed) {
         // Too early — show locked state with countdown
         mySection = `
-          <div class="ti-my-section" style="border-color:rgba(251,191,36,0.25);background:rgba(251,191,36,0.04);flex-wrap:wrap;row-gap:8px;">
+          <div class="ti-my-section" style="border-color:rgba(251,191,36,0.25);background:rgba(251,191,36,0.04);">
             <div class="ti-my-label">Your Attendance</div>
-            <div class="ti-my-status" style="color:#fbbf24;gap:6px;flex:1;min-width:200px;flex-wrap:wrap;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-              <span>Clock-in opens in <strong style="font-family:'JetBrains Mono',monospace;margin:0 2px;">${fmtMinutesUntilOpen(gate.minutesUntil)}</strong></span>
-              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);">(2 hrs before call time)</span>
+            <div class="ti-my-status" style="color:#fbbf24;gap:8px;flex:1;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              Clock-in opens in <strong style="font-family:'JetBrains Mono',monospace;margin:0 3px;">${fmtMinutesUntilOpen(gate.minutesUntil)}</strong>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);margin-left:4px;">(2 hrs before call time)</span>
             </div>
-            <button class="btn ti-btn" disabled style="opacity:0.4;cursor:not-allowed;background:var(--surface3);border:1px solid var(--border);color:var(--text-muted);flex-shrink:0;">
+            <button class="btn ti-btn" disabled style="opacity:0.4;cursor:not-allowed;background:var(--surface3);border:1px solid var(--border);color:var(--text-muted);">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
               Locked
             </button>
@@ -672,8 +672,8 @@ async function buildTimeInPanelHTML(eventId) {
   // Admin rows have extra columns for actions — adjust grid accordingly
   // Golf: avatar | name | hole | time-in | time-out | status | [actions]
   const colsTemplate = isGolf
-    ? (_isAdmin ? '28px 1fr 40px 68px 68px 80px 90px' : '28px 1fr 40px 72px 72px 84px')
-    : (_isAdmin ? '28px 1fr 68px 68px 80px 90px'      : '28px 1fr 72px 72px 84px');
+    ? (_isAdmin ? '32px 1fr 56px 100px 100px 110px 130px' : '32px 1fr 56px 90px 90px 110px')
+    : (_isAdmin ? '32px 1fr 100px 100px 110px 130px'      : '32px 1fr 90px 90px 110px');
 
   const tableRows = assignedUsers.map(u => {
     const rec  = findRecordForUser(u);
@@ -757,7 +757,7 @@ async function buildTimeInPanelHTML(eventId) {
     <div class="ti-table-wrap">
       <div class="ti-table-header">
         <span>Attendance</span>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:10px;">
           <span class="ti-count">${presentCount}/${totalCount} clocked in</span>
           <button class="ti-expand-btn" onclick="openAttendanceExpand('${eventId}')">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
@@ -765,17 +765,18 @@ async function buildTimeInPanelHTML(eventId) {
           </button>
         </div>
       </div>
-      <div style="overflow-x:auto;">
-        <div class="ti-table-cols" style="grid-template-columns:${colsTemplate};min-width:max-content;">
-          ${colHeaders}
-        </div>
-        <div style="min-width:max-content;">${tableRows || '<div class="ti-empty">No assignees yet.</div>'}</div>
+      <div class="ti-table-cols" style="grid-template-columns:${colsTemplate};">
+        ${colHeaders}
       </div>
+      ${tableRows || `<div class="ti-empty">No assignees yet.</div>`}
     </div>`;
 }
 
 // ── ATTENDANCE EXPAND OVERLAY ────────────────
+let _expandEventId = null;
+
 async function openAttendanceExpand(eventId) {
+  _expandEventId = eventId;
   const ev           = _events.find(e => e.id == eventId);
   const assignedRaw  = _assignees[eventId] || [];
   const assigned     = assignedRaw.map(a => typeof a === 'object' ? a.username : a);
@@ -1133,7 +1134,7 @@ function openDetail(eventId) {
         </div>
         <div class="detail-info-item">
           <div class="detail-info-label">Match Date</div>
-          <div class="detail-info-val accent" style="display:flex;align-items:center;flex-wrap:wrap;gap:5px;">${formatDisplayDate(ev.event_date)}${ev.call_date && ev.call_date !== ev.event_date ? ' <span style="font-size:10px;font-family:\'JetBrains Mono\',monospace;background:rgba(251,191,36,0.12);color:#fbbf24;padding:1px 7px;border-radius:4px;vertical-align:middle;margin-left:4px;">OVERNIGHT</span>' : ''}</div>
+          <div class="detail-info-val accent">${formatDisplayDate(ev.event_date)}${ev.call_date && ev.call_date !== ev.event_date ? ' <span style="font-size:10px;font-family:\'JetBrains Mono\',monospace;background:rgba(251,191,36,0.12);color:#fbbf24;padding:1px 7px;border-radius:4px;vertical-align:middle;margin-left:4px;">OVERNIGHT</span>' : ''}</div>
         </div>
         <div class="detail-info-item">
           <div class="detail-info-label">Venue</div>
@@ -1529,3 +1530,183 @@ document.addEventListener('DOMContentLoaded', async function () {
   populateSportFilter();
   renderEvents();
 });
+
+// ── EVENT PAYROLL PDF ─────────────────────────
+async function runEventPayroll() {
+  const eventId = _expandEventId;
+  if (!eventId) { toast('No event selected.', 'error'); return; }
+
+  const ev = _events.find(e => e.id == eventId);
+  if (!ev) { toast('Event not found.', 'error'); return; }
+
+  const btn = document.getElementById('runPayrollBtn');
+  const origHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:sa-spin 0.8s linear infinite"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Generating…`;
+
+  try {
+    // ── All events pay a flat ₱2,000 ──
+    const EVENT_FLAT_RATE = 2000;
+
+    // ── Get assignees and attendance records ──
+    const assignedRaw  = _assignees[eventId] || [];
+    const assigned     = assignedRaw.map(a => typeof a === 'object' ? a.username : a);
+    const allRecords   = await loadAllTimeInRecords(eventId);
+
+    const assignedUsers = _allUsers
+      .filter(u => assigned.includes(u.username))
+      .sort((a, b) => a.display_name.localeCompare(b.display_name));
+
+    // ── Build rows ──
+    const WORK_MINS = 8 * 60; // 480 mins = 1 full day
+    const eventDateLabel = ev.event_date
+      ? new Date(ev.event_date + 'T00:00:00').toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })
+      : 'N/A';
+
+    const tableRows = assignedUsers.map(u => {
+      const rec = allRecords.find(r =>
+        (r.username && r.username === u.username) ||
+        (r.name && r.name === u.display_name)
+      ) || null;
+
+      const dailyRate = EVENT_FLAT_RATE;
+
+      // Late deduction: (minutesLate / 480) * dailyRate
+      let lateDeduction = 0;
+      if (rec && ev.call_date && ev.call_time) {
+        const att = computeAttendanceStatus(rec.time_in, ev.call_date, ev.call_time);
+        if (att.isLate && att.minutesLate > 0) {
+          lateDeduction = Math.round((att.minutesLate / WORK_MINS) * dailyRate * 100) / 100;
+        }
+      }
+
+      const salary   = dailyRate > 0 ? dailyRate.toLocaleString('en-PH', { minimumFractionDigits: 2 }) : '—';
+      const lateDed  = lateDeduction > 0 ? lateDeduction.toLocaleString('en-PH', { minimumFractionDigits: 2 }) : '—';
+
+      return [
+        u.display_name,
+        eventDateLabel,
+        dailyRate > 0 ? `₱${salary}` : '—',
+        lateDeduction > 0 ? `₱${lateDed}` : '—',
+        '' // signature — left blank for physical signing
+      ];
+    });
+
+    // ── Build PDF ──
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+    const pageW  = doc.internal.pageSize.getWidth();
+    const pad    = 14;
+
+    // Header
+    doc.setFillColor(8, 12, 20);
+    doc.rect(0, 0, pageW, 22, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(96, 165, 250); // accent-bright
+    doc.text('SUPREME INFOTECH SOLUTIONS', pad, 10);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(107, 127, 163); // text-muted
+    doc.text('Event Payroll Report', pad, 16);
+
+    // Event info strip
+    doc.setFillColor(13, 19, 32);
+    doc.rect(0, 22, pageW, 14, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(232, 237, 245);
+    doc.text((ev.event_name || 'Untitled Event').toUpperCase(), pad, 30);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(107, 127, 163);
+    const metaParts = [
+      ev.sport ? ev.sport.toUpperCase() : '',
+      ev.venue ? `Venue: ${ev.venue}` : '',
+      `Event Date: ${eventDateLabel}`,
+      ev.call_time ? `Call Time: ${ev.call_time}` : '',
+    ].filter(Boolean).join('   |   ');
+    doc.text(metaParts, pad, 34);
+
+    // Generated timestamp
+    doc.setFontSize(7);
+    doc.setTextColor(107, 127, 163);
+    const genLabel = `Generated: ${new Date().toLocaleString('en-PH')}`;
+    doc.text(genLabel, pageW - pad, 34, { align: 'right' });
+
+    // Table
+    doc.autoTable({
+      startY: 40,
+      head: [['Employee Name', 'Event Date', 'Salary (Daily Rate)', 'Late Deduction', 'Signature']],
+      body: tableRows,
+      margin: { left: pad, right: pad },
+      styles: {
+        font: 'helvetica',
+        fontSize: 9,
+        cellPadding: { top: 5, bottom: 5, left: 5, right: 5 },
+        lineColor: [30, 45, 69],
+        lineWidth: 0.3,
+        textColor: [232, 237, 245],
+        fillColor: [13, 19, 32],
+      },
+      headStyles: {
+        fillColor: [17, 24, 39],
+        textColor: [96, 165, 250],
+        fontStyle: 'bold',
+        fontSize: 8,
+        halign: 'center',
+        lineColor: [42, 63, 96],
+      },
+      alternateRowStyles: {
+        fillColor: [10, 16, 26],
+      },
+      columnStyles: {
+        0: { cellWidth: 55, fontStyle: 'bold', textColor: [232, 237, 245] },
+        1: { cellWidth: 40, halign: 'center' },
+        2: { cellWidth: 38, halign: 'right', textColor: [52, 211, 153] },
+        3: { cellWidth: 38, halign: 'right', textColor: [248, 113, 113] },
+        4: { cellWidth: 'auto', minCellHeight: 14 },
+      },
+      didParseCell(data) {
+        // Absent employees — dim the row
+        if (data.row.index >= 0 && data.section === 'body') {
+          const salary = data.row.raw[2];
+          if (salary === '—' && data.column.index === 2) {
+            data.cell.styles.textColor = [58, 74, 106];
+          }
+        }
+      },
+    });
+
+    // Footer on every page
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      const y = doc.internal.pageSize.getHeight() - 7;
+      doc.setDrawColor(30, 45, 69);
+      doc.setLineWidth(0.3);
+      doc.line(pad, y - 2, pageW - pad, y - 2);
+      doc.setFontSize(7);
+      doc.setTextColor(58, 74, 106);
+      doc.text('Supreme InfoTech Solutions — Confidential', pad, y);
+      doc.text(`Page ${i} of ${pageCount}`, pageW - pad, y, { align: 'right' });
+    }
+
+    // Save
+    const safeName = (ev.event_name || 'event').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    doc.save(`payroll_${safeName}_${ev.event_date || 'undated'}.pdf`);
+    toast('Payroll PDF generated!', 'success');
+
+  } catch (err) {
+    console.error('[runEventPayroll]', err);
+    toast('Failed to generate payroll PDF.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origHTML;
+  }
+}
