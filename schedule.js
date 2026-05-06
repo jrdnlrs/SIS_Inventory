@@ -49,7 +49,7 @@ let _events      = [];          // all loaded events
 let _allUsers    = [];          // from users.json
 let _assignees   = {};          // { event_id: [username, …] }
 let _editingId   = null;        // null = creating new
-let _selectedAssignees = new Set();
+let _selectedAssignees = new Map(); // username → hole_number (null for non-golf)
 
 // ── SPORT CONFIG ───────────────────────────
 const SPORT_EMOJI = {
@@ -141,12 +141,12 @@ async function loadEvents() {
     // Load all assignees in one shot
     if (rows.length > 0) {
       const assigneeRows = await dbGet(
-        `${SUPABASE_URL}/rest/v1/sport_event_assignees?select=event_id,username`
+        `${SUPABASE_URL}/rest/v1/sport_event_assignees?select=event_id,username,hole_number`
       );
       _assignees = {};
       assigneeRows.forEach(r => {
         if (!_assignees[r.event_id]) _assignees[r.event_id] = [];
-        _assignees[r.event_id].push(r.username);
+        _assignees[r.event_id].push({ username: r.username, hole_number: r.hole_number || null });
       });
     }
 
@@ -274,7 +274,7 @@ function buildCard(ev) {
   const emoji      = SPORT_EMOJI[ev.sport] || '🏆';
   const colorKey   = SPORT_COLOR_KEY[ev.sport] || '';
   const statusStr  = computeStatus(ev);
-  const assigned   = _assignees[ev.id] || [];
+  const assigned   = (_assignees[ev.id] || []).map(a => typeof a === 'object' ? a.username : a);
   const assignedUsers = _allUsers.filter(u => assigned.includes(u.username));
 
   // Avatar stack (up to 4 + overflow count)
@@ -554,9 +554,14 @@ function computeAttendanceStatus(timeInIso, callDate, callTime) {
 
 // Build the full Time In panel HTML (async — fetches records)
 async function buildTimeInPanelHTML(eventId) {
-  const ev       = _events.find(e => e.id == eventId);
-  const assigned = _assignees[eventId] || [];
-  const isAssigned = assigned.includes(_session.username);
+  const ev           = _events.find(e => e.id == eventId);
+  const assignedRaw  = _assignees[eventId] || [];
+  const assigned     = assignedRaw.map(a => typeof a === 'object' ? a.username : a);
+  const holeMap      = Object.fromEntries(
+    assignedRaw.map(a => typeof a === 'object' ? [a.username, a.hole_number] : [a, null])
+  );
+  const isGolf       = ev && ev.sport === 'golf';
+  const isAssigned   = assigned.includes(_session.username);
 
   // Admins always see the attendance table; employees only see if assigned
   if (!isAssigned && !_isAdmin) {
@@ -657,17 +662,25 @@ async function buildTimeInPanelHTML(eventId) {
   });
 
   // Admin rows have extra columns for actions — adjust grid accordingly
+  // Golf adds a Hole column before the time columns
+  const holeCol      = isGolf ? ' 52px' : '';
   const colsTemplate = _isAdmin
-    ? '32px 1fr 100px 100px 110px 130px'
-    : '32px 1fr 90px 90px 110px';
+    ? `32px 1fr${holeCol} 100px 100px 110px 130px`
+    : `32px 1fr${holeCol} 90px 90px 110px`;
 
   const tableRows = assignedUsers.map(u => {
     const rec  = findRecordForUser(u);
     const isMe = u.username === _session.username;
+    const hole = holeMap[u.username];
 
     const safeUser = u.username.replace(/'/g, "\\'");
     const safeEid  = String(eventId).replace(/'/g, "\\'");
     const safeName = u.display_name.replace(/'/g, "\\'");
+
+    const holeCellAbsent = isGolf
+      ? `<div class="ti-row-time" style="text-align:center;">
+           ${hole ? `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--accent-bright);">H${hole}</span>` : '<span style="color:var(--text-dim);">—</span>'}
+         </div>` : '';
 
     const adminActions = _isAdmin
       ? `<div style="display:flex;gap:5px;justify-content:flex-end;align-items:center;">
@@ -697,6 +710,7 @@ async function buildTimeInPanelHTML(eventId) {
       return `<div class="ti-row ti-row-absent ${isMe ? 'ti-row-me' : ''}" style="grid-template-columns:${colsTemplate};">
         <div class="ti-row-avatar">${initials(u.display_name)}</div>
         <div class="ti-row-name">${escHtml(u.display_name)}${isMe ? ' <span class="ti-you-tag">you</span>' : ''}</div>
+        ${holeCellAbsent}
         <div class="ti-row-time ti-absent">—</div>
         <div class="ti-row-time ti-absent">—</div>
         <div class="ti-row-time"><span class="ti-status-badge ti-status-absent">Absent</span></div>
@@ -708,9 +722,14 @@ async function buildTimeInPanelHTML(eventId) {
     const statusBadge = attStatus.isLate
       ? `<span class="ti-status-badge ti-status-late">${escHtml(attStatus.label)}</span>`
       : `<span class="ti-status-badge ti-status-ontime">${escHtml(attStatus.label)}</span>`;
+    const holeCellPresent = isGolf
+      ? `<div class="ti-row-time" style="text-align:center;">
+           ${hole ? `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--accent-bright);">H${hole}</span>` : '<span style="color:var(--text-dim);">—</span>'}
+         </div>` : '';
     return `<div class="ti-row ti-row-present ${isMe ? 'ti-row-me' : ''}" style="grid-template-columns:${colsTemplate};">
       <div class="ti-row-avatar ti-avatar-in">${initials(u.display_name)}</div>
       <div class="ti-row-name">${escHtml(u.display_name)}${isMe ? ' <span class="ti-you-tag">you</span>' : ''}</div>
+      ${holeCellPresent}
       <div class="ti-row-time ti-in">${fmtTimeStamp(rec.time_in)}</div>
       <div class="ti-row-time ${hasOut ? 'ti-out' : 'ti-pending'}">${hasOut ? fmtTimeStamp(rec.time_out) : '…'}</div>
       <div class="ti-row-time">${statusBadge}</div>
@@ -718,9 +737,10 @@ async function buildTimeInPanelHTML(eventId) {
     </div>`;
   }).join('');
 
+  const holeHeader   = isGolf ? `<span style="text-align:center;">Hole</span>` : '';
   const colHeaders = _isAdmin
-    ? `<span></span><span></span><span>Time In</span><span>Time Out</span><span>Status</span><span style="text-align:right;">Actions</span>`
-    : `<span></span><span></span><span>Time In</span><span>Time Out</span><span>Status</span>`;
+    ? `<span></span><span></span>${holeHeader}<span>Time In</span><span>Time Out</span><span>Status</span><span style="text-align:right;">Actions</span>`
+    : `<span></span><span></span>${holeHeader}<span>Time In</span><span>Time Out</span><span>Status</span>`;
 
   const presentCount = assignedUsers.filter(u => findRecordForUser(u)).length;
   const totalCount   = assignedUsers.length;
@@ -747,9 +767,14 @@ async function buildTimeInPanelHTML(eventId) {
 
 // ── ATTENDANCE EXPAND OVERLAY ────────────────
 async function openAttendanceExpand(eventId) {
-  const ev         = _events.find(e => e.id == eventId);
-  const assigned   = _assignees[eventId] || [];
-  const allRecords = await loadAllTimeInRecords(eventId);
+  const ev           = _events.find(e => e.id == eventId);
+  const assignedRaw  = _assignees[eventId] || [];
+  const assigned     = assignedRaw.map(a => typeof a === 'object' ? a.username : a);
+  const holeMap      = Object.fromEntries(
+    assignedRaw.map(a => typeof a === 'object' ? [a.username, a.hole_number] : [a, null])
+  );
+  const isGolf       = ev && ev.sport === 'golf';
+  const allRecords   = await loadAllTimeInRecords(eventId);
   const assignedUsers = _allUsers.filter(u => assigned.includes(u.username));
 
   function findRec(u) {
@@ -759,21 +784,29 @@ async function openAttendanceExpand(eventId) {
     return r || null;
   }
 
-  // Wide layout: avatar | name | time-in | time-out | status | actions(admin)
+  // Wide layout: avatar | name | [hole] | time-in | time-out | status | actions(admin)
+  const holeColExp = isGolf ? ' 60px' : '';
   const colsExp = _isAdmin
-    ? '40px 1fr 130px 130px 130px 160px'
-    : '40px 1fr 130px 130px 130px';
+    ? `40px 1fr${holeColExp} 130px 130px 130px 160px`
+    : `40px 1fr${holeColExp} 130px 130px 130px`;
 
+  const holeHeaderExp = isGolf ? `<span style="text-align:center;">Hole</span>` : '';
   const headersExp = _isAdmin
-    ? `<span></span><span style="text-align:left;">Employee</span><span style="text-align:center;">Time In</span><span style="text-align:center;">Time Out</span><span style="text-align:center;">Status</span><span style="text-align:right;">Actions</span>`
-    : `<span></span><span style="text-align:left;">Employee</span><span style="text-align:center;">Time In</span><span style="text-align:center;">Time Out</span><span style="text-align:center;">Status</span>`;
+    ? `<span></span><span style="text-align:left;">Employee</span>${holeHeaderExp}<span style="text-align:center;">Time In</span><span style="text-align:center;">Time Out</span><span style="text-align:center;">Status</span><span style="text-align:right;">Actions</span>`
+    : `<span></span><span style="text-align:left;">Employee</span>${holeHeaderExp}<span style="text-align:center;">Time In</span><span style="text-align:center;">Time Out</span><span style="text-align:center;">Status</span>`;
 
   const rows = assignedUsers.map(u => {
     const rec    = findRec(u);
     const isMe   = u.username === _session.username;
+    const hole   = holeMap[u.username];
     const safeUser = u.username.replace(/'/g, "\\'");
     const safeEid  = String(eventId).replace(/'/g, "\\'");
     const safeName = u.display_name.replace(/'/g, "\\'");
+
+    const holeCell = isGolf
+      ? `<div class="ti-row-time" style="text-align:center;">
+           ${hole ? `<span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--accent-bright);">H${hole}</span>` : '<span style="color:var(--text-dim);">—</span>'}
+         </div>` : '';
 
     const adminActions = _isAdmin
       ? `<div style="display:flex;gap:5px;justify-content:flex-end;align-items:center;">
@@ -799,6 +832,7 @@ async function openAttendanceExpand(eventId) {
       return `<div class="ti-row ti-row-absent ${isMe ? 'ti-row-me' : ''}" style="grid-template-columns:${colsExp};padding:12px 18px;">
         <div class="ti-row-avatar">${initials(u.display_name)}</div>
         <div class="ti-row-name">${escHtml(u.display_name)}${isMe ? ' <span class="ti-you-tag">you</span>' : ''}</div>
+        ${holeCell}
         <div class="ti-row-time ti-absent" style="text-align:center;">—</div>
         <div class="ti-row-time ti-absent" style="text-align:center;">—</div>
         <div class="ti-row-time" style="text-align:center;"><span class="ti-status-badge ti-status-absent">Absent</span></div>
@@ -815,6 +849,7 @@ async function openAttendanceExpand(eventId) {
     return `<div class="ti-row ti-row-present ${isMe ? 'ti-row-me' : ''}" style="grid-template-columns:${colsExp};padding:12px 18px;">
       <div class="ti-row-avatar ti-avatar-in">${initials(u.display_name)}</div>
       <div class="ti-row-name">${escHtml(u.display_name)}${isMe ? ' <span class="ti-you-tag">you</span>' : ''}</div>
+      ${holeCell}
       <div class="ti-row-time ti-in" style="text-align:center;">${fmtTimeStamp(rec.time_in)}</div>
       <div class="ti-row-time ${hasOut ? 'ti-out' : 'ti-pending'}" style="text-align:center;">${hasOut ? fmtTimeStamp(rec.time_out) : '…'}</div>
       <div class="ti-row-time" style="text-align:center;">${statusBadge}</div>
@@ -1160,7 +1195,7 @@ function getCssVarAlpha(colorKey, alpha) {
 // ── CREATE / EDIT MODAL ─────────────────────
 function openCreateModal() {
   _editingId = null;
-  _selectedAssignees = new Set();
+  _selectedAssignees = new Map();
 
   document.getElementById('createModalTitle').textContent = 'New Sport Event';
   document.getElementById('deleteEventBtn').style.display  = 'none';
@@ -1185,7 +1220,15 @@ function openEditModal(eventId) {
   if (!ev) return;
 
   _editingId = ev.id;
-  _selectedAssignees = new Set(_assignees[ev.id] || []);
+  // Build Map: username → hole_number (from _assignees which stores objects)
+  _selectedAssignees = new Map();
+  (_assignees[ev.id] || []).forEach(a => {
+    if (typeof a === 'object') {
+      _selectedAssignees.set(a.username, a.hole_number || null);
+    } else {
+      _selectedAssignees.set(a, null);
+    }
+  });
 
   document.getElementById('createModalTitle').textContent  = 'Edit Event';
   document.getElementById('deleteEventBtn').style.display  = '';
@@ -1218,8 +1261,10 @@ function buildAssignList() {
 }
 
 function filterAssignList() {
-  const q   = (document.getElementById('assignSearch').value || '').toLowerCase();
-  const list = document.getElementById('assignList');
+  const q      = (document.getElementById('assignSearch').value || '').toLowerCase();
+  const list   = document.getElementById('assignList');
+  const sport  = document.getElementById('fSport').value;
+  const isGolf = sport === 'golf';
 
   const visible = _allUsers.filter(u =>
     !q || u.display_name.toLowerCase().includes(q) || u.username.toLowerCase().includes(q)
@@ -1231,13 +1276,27 @@ function filterAssignList() {
   }
 
   list.innerHTML = visible.map(u => {
-    const checked = _selectedAssignees.has(u.username);
+    const checked    = _selectedAssignees.has(u.username);
+    const holeVal    = checked ? (_selectedAssignees.get(u.username) || '') : '';
+    const holeInput  = isGolf ? `
+      <input
+        type="number" min="1" max="18"
+        class="assign-hole-input"
+        placeholder="Hole #"
+        value="${holeVal}"
+        ${!checked ? 'disabled' : ''}
+        onclick="event.stopPropagation()"
+        oninput="setAssigneeHole('${u.username}', this.value)"
+        title="Hole number (1–18)"
+      />` : '';
+
     return `
       <div class="assign-item ${checked ? 'checked' : ''}" onclick="toggleAssignee('${u.username}')">
         <div class="assign-checkbox"></div>
         <div class="assign-avatar-sm">${initials(u.display_name)}</div>
         <div class="assign-name">${escHtml(u.display_name)}</div>
         <span class="assign-role-badge ${u.role}">${u.role}</span>
+        ${holeInput}
       </div>`;
   }).join('');
 
@@ -1248,9 +1307,15 @@ function toggleAssignee(username) {
   if (_selectedAssignees.has(username)) {
     _selectedAssignees.delete(username);
   } else {
-    _selectedAssignees.add(username);
+    _selectedAssignees.set(username, null);
   }
   filterAssignList();
+}
+
+function setAssigneeHole(username, value) {
+  if (!_selectedAssignees.has(username)) return;
+  const num = parseInt(value, 10);
+  _selectedAssignees.set(username, (!isNaN(num) && num >= 1 && num <= 18) ? num : null);
 }
 
 function updateAssignCount() {
@@ -1277,12 +1342,22 @@ async function saveEvent() {
   if (!date)     { toast('Match date is required.', 'error'); return; }
   if (!venue)    { toast('Venue is required.', 'error'); return; }
 
-  // ── PAST CALL TIME CHECK ──────────────────────────────────────────
-  const callDateTime = parseCallDateTime(callDate, callTime);
-  if (!isNaN(callDateTime) && callDateTime <= Date.now()) {
-    toast('Call time cannot be in the past. Please set a future date and time.', 'error');
-    return;
+  // ── GOLF HOLE VALIDATION ─────────────────────────────────────────
+  if (sport === 'golf' && _selectedAssignees.size > 0) {
+    const missing = [..._selectedAssignees.entries()].filter(([, hole]) => !hole);
+    if (missing.length > 0) {
+      toast('Please assign a hole number (1–18) to all selected employees.', 'error');
+      return;
+    }
+    const holeValues = [..._selectedAssignees.values()];
+    const dupes = holeValues.filter((h, i, arr) => arr.indexOf(h) !== i);
+    if (dupes.length > 0) {
+      toast(`Duplicate hole numbers found: ${[...new Set(dupes)].join(', ')}. Each hole can only be assigned once.`, 'error');
+      return;
+    }
   }
+
+  // ── PAST CALL TIME CHECK ─────────────────────────────────────────
 
   const payload = {
     event_name:  name,
@@ -1326,9 +1401,10 @@ async function saveEvent() {
     );
 
     if (_selectedAssignees.size > 0) {
-      const rows = [..._selectedAssignees].map(username => ({
+      const rows = [..._selectedAssignees.entries()].map(([username, hole_number]) => ({
         event_id: eventId,
         username,
+        hole_number: hole_number || null,
       }));
       await dbPost(
         `${SUPABASE_URL}/rest/v1/sport_event_assignees`,

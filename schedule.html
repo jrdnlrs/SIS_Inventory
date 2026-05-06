@@ -13,7 +13,33 @@
    SCHEDULE PAGE — schedule.css (inline)
    ══════════════════════════════════════════ */
 
-/* ── ATTENDANCE STATUS BADGES ── */
+/* ── ASSIGN HOLE INPUT ── */
+.assign-hole-input {
+  width: 64px;
+  padding: 4px 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--accent-bright);
+  outline: none;
+  margin-left: auto;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  -moz-appearance: textfield;
+}
+.assign-hole-input::-webkit-outer-spin-button,
+.assign-hole-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.assign-hole-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+.assign-hole-input:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
 .ti-status-badge {
   display: inline-block;
   font-family: 'JetBrains Mono', monospace;
@@ -142,15 +168,13 @@
 .ct-card-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 7px 10px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--bg);
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
-  white-space: nowrap;
-  overflow: hidden;
 }
 
 .ct-card-row svg { flex-shrink: 0; opacity: 0.5; }
@@ -630,9 +654,8 @@
 /* ── EVENTS GRID ── */
 .events-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 18px;
-  align-items: stretch;
 }
 
 /* ── EVENT FLASHCARD ── */
@@ -646,7 +669,6 @@
   transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
   display: flex;
   flex-direction: column;
-  height: 100%;
 }
 
 .event-card:hover {
@@ -772,7 +794,7 @@
 }
 
 .event-assigned-count {
-  margin-top: auto;
+  margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--border);
   display: flex;
@@ -1468,7 +1490,7 @@
         </div>
         <div class="form-group">
           <label>Sport <span style="color:var(--red)">*</span></label>
-          <select id="fSport">
+          <select id="fSport" onchange="filterAssignList()">
             <option value="">— Select sport —</option>
             <option value="golf">⛳ Golf</option>
             <option value="baseball">⚾ Baseball</option>
