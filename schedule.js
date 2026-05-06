@@ -199,6 +199,74 @@ function renderEvents() {
   }
 
   grid.innerHTML = filtered.map(ev => buildCard(ev)).join('');
+  startCardCountdowns();
+}
+
+// ── CARD COUNTDOWNS (one per visible card) ──
+let _cardCountdownTimers = [];
+
+function clearCardCountdowns() {
+  _cardCountdownTimers.forEach(t => clearInterval(t));
+  _cardCountdownTimers = [];
+}
+
+function startCardCountdowns() {
+  clearCardCountdowns();
+  document.querySelectorAll('.event-card-countdown').forEach(el => {
+    const callDate = el.dataset.callDate;
+    const callTime = el.dataset.callTime;
+
+    function renderCardCountdown() {
+      if (!callDate || !callTime) {
+        el.innerHTML = `<div class="ct-card-notset">⏱ No call time set</div>`;
+        return;
+      }
+
+      const now    = Date.now();
+      const target = parseCallDateTime(callDate, callTime);
+      const diff   = target - now;
+
+      if (isNaN(diff)) {
+        el.innerHTML = `<div class="ct-card-notset">⏱ No call time set</div>`;
+        return;
+      }
+
+      if (diff <= 0) {
+        el.innerHTML = `<div class="ct-card-past">✓ Call time passed</div>`;
+        return;
+      }
+
+      const days  = Math.floor(diff / 86400000);
+      const hours = Math.floor((diff % 86400000) / 3600000);
+      const mins  = Math.floor((diff % 3600000) / 60000);
+      const secs  = Math.floor((diff % 60000) / 1000);
+
+      const urgency = diff < 3600000 ? 'urgent'
+                    : diff < 86400000 ? 'soon'
+                    : 'normal';
+
+      const parts = [];
+      if (days > 0)  parts.push(`<span class="ct-card-num">${days}</span><span class="ct-card-lbl">d</span>`);
+      parts.push(`<span class="ct-card-num">${String(hours).padStart(2,'0')}</span><span class="ct-card-lbl">h</span>`);
+      parts.push(`<span class="ct-card-num">${String(mins).padStart(2,'0')}</span><span class="ct-card-lbl">m</span>`);
+      parts.push(`<span class="ct-card-num ct-card-secs">${String(secs).padStart(2,'0')}</span><span class="ct-card-lbl">s</span>`);
+
+      el.innerHTML = `
+        <div class="ct-card-row ct-card-${urgency}">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span class="ct-card-label-text">CALL IN</span>
+          <div class="ct-card-parts">${parts.join('')}</div>
+        </div>`;
+    }
+
+    renderCardCountdown();
+    // Only tick upcoming cards
+    const t = setInterval(() => {
+      if (!document.getElementById(el.id)) { clearInterval(t); return; }
+      renderCardCountdown();
+    }, 1000);
+    _cardCountdownTimers.push(t);
+  });
 }
 
 function buildCard(ev) {
@@ -215,6 +283,10 @@ function buildCard(ev) {
   const avatarHTML = visible.map(u =>
     `<div class="event-avatar" title="${u.display_name}">${initials(u.display_name)}</div>`
   ).join('') + (overflow > 0 ? `<div class="event-avatar" style="background:var(--surface3);color:var(--text-muted)">+${overflow}</div>` : '');
+
+  const cardCountdownId = `cd-card-${ev.id}`;
+  const callDateForCard  = ev.call_date || ev.event_date || '';
+  const callTimeForCard  = ev.call_time || '';
 
   return `
     <div class="event-card" data-sport-color="${colorKey}" onclick="openDetail('${ev.id}')">
@@ -235,6 +307,9 @@ function buildCard(ev) {
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
             ${escHtml(ev.venue || 'TBD')}
           </div>
+        </div>
+        <div class="event-card-countdown" id="${cardCountdownId}" data-call-date="${callDateForCard}" data-call-time="${callTimeForCard}">
+          <!-- countdown injected by startCardCountdowns() -->
         </div>
         <div class="event-assigned-count">
           <div class="event-assigned-avatars">${avatarHTML}</div>
@@ -258,10 +333,21 @@ function clearCountdown() {
  * callDate: "YYYY-MM-DD", callTime: "HH:MM"
  * Injects live DOM into the element with id=`countdownTarget`
  */
-function startCallTimeCountdown(callDate, callTime) {
+function parseCallDateTime(callDate, callTime) {
+  // Safely parse "YYYY-MM-DD" + "HH:MM" (or "HH:MM:SS") into a timestamp
+  if (!callDate || !callTime) return NaN;
+  const [year, month, day]   = callDate.split('-').map(Number);
+  const timeParts             = callTime.split(':').map(Number);
+  const [hour, minute]        = timeParts;
+  const d = new Date(year, month - 1, day, hour, minute, 0, 0);
+  return d.getTime();
+}
+
+// Supports multiple targets: pass a CSS selector string or element id
+function startCallTimeCountdown(callDate, callTime, targetId = 'countdownTarget') {
   clearCountdown();
 
-  const el = document.getElementById('countdownTarget');
+  const el = document.getElementById(targetId);
   if (!el) return;
 
   if (!callDate || !callTime) {
@@ -274,19 +360,20 @@ function startCallTimeCountdown(callDate, callTime) {
   }
 
   function tick() {
-    const now        = Date.now();
-    const target     = new Date(`${callDate}T${callTime}:00`).getTime();
-    const diff       = target - now;
+    const now    = Date.now();
+    const target = parseCallDateTime(callDate, callTime);
+    const diff   = target - now;
 
-    if (!document.getElementById('countdownTarget')) { clearCountdown(); return; }
+    // Re-query in case DOM was replaced (card re-renders)
+    const el2 = document.getElementById(targetId);
+    if (!el2) { clearCountdown(); return; }
 
     if (diff <= 0) {
-      // Past — show elapsed or "now"
-      const absDiff = Math.abs(diff);
+      const absDiff   = Math.abs(diff);
       const totalMins = Math.floor(absDiff / 60000);
       const hrs  = Math.floor(totalMins / 60);
       const mins = totalMins % 60;
-      el.innerHTML = `
+      el2.innerHTML = `
         <div class="ct-past">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           Call time passed ${hrs > 0 ? hrs + 'h ' : ''}${mins}m ago
@@ -300,9 +387,8 @@ function startCallTimeCountdown(callDate, callTime) {
     const mins  = Math.floor((diff % 3600000) / 60000);
     const secs  = Math.floor((diff % 60000) / 1000);
 
-    // Urgency level
-    const urgency = diff < 3600000 ? 'urgent'   // < 1 hour
-                  : diff < 86400000 ? 'soon'     // < 1 day
+    const urgency = diff < 3600000 ? 'urgent'
+                  : diff < 86400000 ? 'soon'
                   : 'normal';
 
     const daysBlock = days > 0 ? `
@@ -312,7 +398,7 @@ function startCallTimeCountdown(callDate, callTime) {
       </div>
       <div class="ct-sep">:</div>` : '';
 
-    el.innerHTML = `
+    el2.innerHTML = `
       <div class="ct-header">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         CALL TIME COUNTDOWN
