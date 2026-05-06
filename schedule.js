@@ -1585,7 +1585,7 @@ async function runEventPayroll() {
       function fmt(n) {
         const parts = n.toFixed(2).split('.');
         parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        return '\u20B1' + parts.join('.');
+        return 'PHP ' + parts.join('.');
       }
 
       return [
@@ -1663,13 +1663,14 @@ async function runEventPayroll() {
       styles: {
         font: 'helvetica',
         fontSize: 9,
-        cellPadding: { top: 6, bottom: 6, left: 6, right: 6 },
+        cellPadding: 7,
         lineColor: rule,
         lineWidth: 0.3,
         textColor: ink,
         fillColor: [255, 255, 255],
         valign: 'middle',
         halign: 'center',
+        minCellHeight: 16,
       },
       headStyles: {
         fillColor: [245, 245, 245],
@@ -1679,17 +1680,29 @@ async function runEventPayroll() {
         halign: 'center',
         valign: 'middle',
         lineColor: rule,
+        minCellHeight: 14,
       },
       alternateRowStyles: {
         fillColor: [250, 250, 250],
       },
       columnStyles: {
-        0: { cellWidth: 55, fontStyle: 'bold', halign: 'left' },
-        1: { cellWidth: 38, halign: 'center' },
-        2: { cellWidth: 34, halign: 'center' },
-        3: { cellWidth: 34, halign: 'center' },
-        4: { cellWidth: 34, halign: 'center', fontStyle: 'bold' },
-        5: { cellWidth: 'auto', minCellHeight: 16, halign: 'center' },
+        0: { cellWidth: 52, fontStyle: 'bold', halign: 'left' },
+        1: { cellWidth: 36 },
+        2: { cellWidth: 38 },
+        3: { cellWidth: 38 },
+        4: { cellWidth: 38, fontStyle: 'bold' },
+        5: { cellWidth: 'auto' },
+      },
+      didParseCell(data) {
+        // Force center + middle on every body cell except col 0
+        if (data.section === 'body' && data.column.index !== 0) {
+          data.cell.styles.halign = 'center';
+          data.cell.styles.valign = 'middle';
+        }
+        if (data.section === 'body' && data.column.index === 0) {
+          data.cell.styles.halign = 'left';
+          data.cell.styles.valign = 'middle';
+        }
       },
     });
 
