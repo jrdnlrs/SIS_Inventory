@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIS — Game Schedule</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="payrollstyles.css">
+<style>
+
+/* ══════════════════════════════════════════
+   SCHEDULE PAGE — schedule.css (inline)
+   ══════════════════════════════════════════ */
+
+/* ── SPORT ICON COLOURS ── */
+:root {
+  --sport-basketball: #fb923c;
+  --sport-volleyball:  #a78bfa;
+  --sport-football:    #34d399;
+  --sport-baseball:    #fbbf24;
+  --sport-tennis:      #f87171;
+  --sport-swimming:    #38bdf8;
+  --sport-badminton:   #4ade80;
+  --sport-generic:     #60a5fa;
+}
+
+/* ── PAGE HEADER BAR ── */
+.schedule-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.schedule-header-left h2 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.schedule-header-left p {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  letter-spacing: 0.5px;
+}
+
+/* ── FILTER TOOLBAR ── */
+.schedule-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  padding: 14px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.schedule-toolbar input[type="text"],
+.schedule-toolbar select {
+  padding: 8px 13px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: 'Barlow', sans-serif;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.schedule-toolbar input[type="text"] { flex: 1; min-width: 180px; }
+.schedule-toolbar input[type="text"]:focus,
+.schedule-toolbar select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.schedule-toolbar select {
+  min-width: 140px;
+}
+
+/* ── EVENTS GRID ── */
+.events-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+/* ── EVENT FLASHCARD ── */
+.event-card {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+
+.event-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 36px rgba(59,130,246,0.15);
+}
+
+/* Sport colour accent stripe */
+.event-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--sport-color, var(--accent));
+}
+
+/* ── CARD BANNER ── */
+.event-banner {
+  position: relative;
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface2);
+  overflow: hidden;
+}
+
+.event-banner-bg {
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
+  font-size: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  pointer-events: none;
+  line-height: 1;
+  transform: scale(1.1);
+}
+
+.event-banner-icon {
+  position: relative;
+  z-index: 1;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  background: rgba(0,0,0,0.3);
+  backdrop-filter: blur(4px);
+  border-color: var(--sport-color, var(--accent));
+  box-shadow: 0 0 24px color-mix(in srgb, var(--sport-color, var(--accent)) 30%, transparent);
+}
+
+.event-status-badge {
+  position: absolute;
+  top: 10px; right: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  z-index: 2;
+}
+
+.event-status-badge.upcoming  { background: rgba(59,130,246,0.12); color: var(--accent-bright); border: 1px solid rgba(59,130,246,0.25); }
+.event-status-badge.ongoing   { background: rgba(52,211,153,0.12); color: var(--green);         border: 1px solid rgba(52,211,153,0.25); }
+.event-status-badge.completed { background: rgba(107,127,163,0.12); color: var(--text-muted);   border: 1px solid rgba(107,127,163,0.2); }
+.event-status-badge.cancelled { background: rgba(248,113,113,0.12); color: var(--red);           border: 1px solid rgba(248,113,113,0.25); }
+
+/* ── CARD BODY ── */
+.event-card-body {
+  padding: 16px 18px 18px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.event-sport-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--sport-color, var(--accent-bright));
+}
+
+.event-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.event-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: auto;
+}
+
+.event-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.event-meta-row svg {
+  flex-shrink: 0;
+  color: var(--text-dim);
+}
+
+.event-assigned-count {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.event-assigned-avatars {
+  display: flex;
+  margin-right: 2px;
+}
+
+.event-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface3);
+  border: 2px solid var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 700;
+  font-family: 'Barlow Condensed', sans-serif;
+  color: var(--text);
+  margin-left: -5px;
+  text-transform: uppercase;
+}
+
+.event-avatar:first-child { margin-left: 0; }
+
+/* ── EMPTY STATE ── */
+.schedule-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+.schedule-empty-icon {
+  font-size: 48px;
+  margin-bottom: 14px;
+  opacity: 0.4;
+}
+
+.schedule-empty p {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  letter-spacing: 0.3px;
+}
+
+/* ══════════════════════════════════════════
+   CREATE / EDIT MODAL
+   ══════════════════════════════════════════ */
+.event-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.event-modal-overlay.open {
+  display: flex;
+}
+
+.event-modal {
+  background: var(--surface);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 680px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+}
+
+.event-modal::-webkit-scrollbar { width: 4px; }
+.event-modal::-webkit-scrollbar-track { background: transparent; }
+.event-modal::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.event-modal-header {
+  padding: 22px 26px 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.event-modal-header h3 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-close-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 16px;
+  transition: all 0.15s;
+}
+
+.modal-close-btn:hover { color: var(--text); background: var(--surface3); }
+
+.event-modal-body {
+  padding: 22px 26px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-row.full { grid-template-columns: 1fr; }
+.form-row.triple { grid-template-columns: 1fr 1fr 1fr; }
+
+.form-group label {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  margin-bottom: 7px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 9px 13px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: 'Barlow', sans-serif;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-group textarea { resize: vertical; min-height: 72px; }
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* ── EMPLOYEE ASSIGN SECTION ── */
+.assign-section {
+  margin-top: 8px;
+}
+
+.assign-section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.assign-count {
+  font-weight: 600;
+  color: var(--accent-bright);
+}
+
+.assign-search {
+  width: 100%;
+  padding: 8px 13px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: 'Barlow', sans-serif;
+  font-size: 13px;
+  outline: none;
+  margin-bottom: 10px;
+  transition: border-color 0.15s;
+}
+
+.assign-search:focus { border-color: var(--accent); }
+
+.assign-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.assign-list::-webkit-scrollbar { width: 4px; }
+.assign-list::-webkit-scrollbar-track { background: transparent; }
+.assign-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.assign-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 13px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+  user-select: none;
+}
+
+.assign-item:last-child { border-bottom: none; }
+.assign-item:hover { background: var(--surface2); }
+
+.assign-item.checked { background: rgba(59,130,246,0.06); }
+
+.assign-checkbox {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border-bright);
+  border-radius: 4px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.assign-item.checked .assign-checkbox {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.assign-item.checked .assign-checkbox::after {
+  content: '';
+  width: 9px;
+  height: 6px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: translateY(-1px) rotate(-45deg);
+  display: block;
+}
+
+.assign-avatar-sm {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Barlow Condensed', sans-serif;
+  color: var(--text);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.assign-name {
+  font-family: 'Barlow', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  flex: 1;
+}
+
+.assign-role-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.assign-role-badge.employee { background: rgba(52,211,153,0.08); color: var(--green); border: 1px solid rgba(52,211,153,0.15); }
+.assign-role-badge.admin    { background: rgba(59,130,246,0.08); color: var(--accent-bright); border: 1px solid rgba(59,130,246,0.15); }
+.assign-role-badge.superadmin { background: rgba(167,139,250,0.1); color: #a78bfa; border: 1px solid rgba(167,139,250,0.2); }
+
+.event-modal-footer {
+  padding: 16px 26px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+}
+
+/* ══════════════════════════════════════════
+   DETAIL MODAL (view full event)
+   ══════════════════════════════════════════ */
+.detail-modal {
+  background: var(--surface);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+}
+
+.detail-modal::-webkit-scrollbar { width: 4px; }
+.detail-modal::-webkit-scrollbar-track { background: transparent; }
+.detail-modal::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* Detail banner */
+.detail-banner {
+  position: relative;
+  height: 130px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface2);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  overflow: hidden;
+}
+
+.detail-banner-bg {
+  position: absolute;
+  inset: 0;
+  font-size: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.05;
+  user-select: none;
+  pointer-events: none;
+}
+
+.detail-banner::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--sport-color, var(--accent));
+}
+
+.detail-banner-icon {
+  position: relative;
+  z-index: 1;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 2px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(6px);
+  border-color: var(--sport-color, var(--accent));
+  box-shadow: 0 0 32px color-mix(in srgb, var(--sport-color, var(--accent)) 35%, transparent);
+}
+
+.detail-body {
+  padding: 22px 26px;
+}
+
+.detail-sport-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--sport-color, var(--accent-bright));
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: var(--text);
+  margin-bottom: 16px;
+  line-height: 1.2;
+}
+
+.detail-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.detail-info-item {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+
+.detail-info-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+
+.detail-info-val {
+  font-family: 'Barlow', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.detail-info-val.accent { color: var(--accent-bright); }
+.detail-info-val.green  { color: var(--green); }
+
+.detail-calltime-box {
+  background: rgba(59,130,246,0.06);
+  border: 1px solid rgba(59,130,246,0.18);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.detail-calltime-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(59,130,246,0.1);
+  border: 1px solid rgba(59,130,246,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--accent-bright);
+}
+
+.detail-calltime-text strong {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent-bright);
+  display: block;
+  line-height: 1.2;
+}
+
+.detail-calltime-text span {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Assigned employees section */
+.detail-section-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-section-title span {
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: rgba(59,130,246,0.1);
+  color: var(--accent-bright);
+  border: 1px solid rgba(59,130,246,0.2);
+  font-size: 9px;
+}
+
+.detail-assignees {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.detail-assignee-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color 0.15s;
+}
+
+.detail-assignee-row:hover { border-color: var(--border-bright); }
+
+.detail-assignee-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--surface3);
+  border: 1px solid var(--border-bright);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'Barlow Condensed', sans-serif;
+  color: var(--text);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.detail-assignee-name {
+  flex: 1;
+  font-family: 'Barlow', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.detail-notes {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 20px;
+  white-space: pre-wrap;
+}
+
+.detail-footer {
+  padding: 14px 26px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ── SPORT COLOUR HELPERS (applied via JS) ── */
+[data-sport-color="basketball"] { --sport-color: var(--sport-basketball); }
+[data-sport-color="volleyball"]  { --sport-color: var(--sport-volleyball); }
+[data-sport-color="football"]    { --sport-color: var(--sport-football); }
+[data-sport-color="baseball"]    { --sport-color: var(--sport-baseball); }
+[data-sport-color="tennis"]      { --sport-color: var(--sport-tennis); }
+[data-sport-color="swimming"]    { --sport-color: var(--sport-swimming); }
+[data-sport-color="badminton"]   { --sport-color: var(--sport-badminton); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 640px) {
+  .events-grid { grid-template-columns: 1fr; }
+  .form-row    { grid-template-columns: 1fr; }
+  .form-row.triple { grid-template-columns: 1fr 1fr; }
+  .detail-info-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="loadingBar" style="display:none;position:fixed;top:0;left:0;right:0;height:3px;background:var(--accent);z-index:9999;animation:loadingPulse 1s ease-in-out infinite;"></div>
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <img src="logo_hub.png" alt="SIS Logo" style="width:52px;height:52px;object-fit:contain;flex-shrink:0;" />
+      <div>
+        <h1>Supreme InfoTech Solutions</h1>
+        <span>Game Schedule</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <a href="profile.html" id="userChip" class="user-chip-link" style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);text-decoration:none;">
+        <span id="userChipName" style="color:var(--text);font-weight:500;transition:color 0.15s;"></span>
+        <span id="userChipRole" style="font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:rgba(59,130,246,0.1);color:var(--accent-bright);border:1px solid rgba(59,130,246,0.2);"></span>
+      </a>
+      <button class="btn btn-ghost" onclick="AUTH.logout()" title="Sign out" style="padding:8px 12px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Sign Out
+      </button>
+    </div>
+  </header>
+
+  <!-- NAV TABS -->
+  <nav class="tab-nav" id="mainNav">
+    <a href="home.html" class="tab-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Home
+    </a>
+    <a href="index.html" class="tab-link" id="navInventory" style="display:none">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h18M3 15h18"/></svg>
+      Inventory
+    </a>
+    <a href="payroll.html" class="tab-link" id="navPayroll" style="display:none">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      Payroll
+    </a>
+    <a href="schedule.html" class="tab-link active">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Game Schedule
+    </a>
+    <a href="superadmin.html" class="tab-link" id="navSuperAdmin" style="display:none; color:#a78bfa;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Super Admin
+    </a>
+  </nav>
+
+  <!-- PAGE HEADER -->
+  <div class="schedule-header">
+    <div class="schedule-header-left">
+      <h2>🏆 Game Schedule</h2>
+      <p id="scheduleSubtitle">Loading events…</p>
+    </div>
+    <div id="createEventBtnWrap" style="display:none">
+      <button class="btn btn-primary" onclick="openCreateModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Event
+      </button>
+    </div>
+  </div>
+
+  <!-- FILTER TOOLBAR -->
+  <div class="schedule-toolbar">
+    <input type="text" id="searchEvents" placeholder="Search by event name or venue…" oninput="renderEvents()" />
+    <select id="filterSport" onchange="renderEvents()">
+      <option value="">All Sports</option>
+    </select>
+    <select id="filterStatus" onchange="renderEvents()">
+      <option value="">All Statuses</option>
+      <option value="upcoming">Upcoming</option>
+      <option value="ongoing">Ongoing</option>
+      <option value="completed">Completed</option>
+      <option value="cancelled">Cancelled</option>
+    </select>
+  </div>
+
+  <!-- EVENTS GRID -->
+  <div class="events-grid" id="eventsGrid">
+    <div class="schedule-empty">
+      <div class="schedule-empty-icon">📅</div>
+      <p>Loading events…</p>
+    </div>
+  </div>
+
+</div><!-- /.app -->
+
+<!-- ══════════════════════════════════════════
+     CREATE / EDIT MODAL
+     ══════════════════════════════════════════ -->
+<div class="event-modal-overlay" id="createModalOverlay">
+  <div class="event-modal">
+    <div class="event-modal-header">
+      <h3>
+        <span class="dot"></span>
+        <span id="createModalTitle">New Sport Event</span>
+      </h3>
+      <button class="modal-close-btn" onclick="closeCreateModal()">✕</button>
+    </div>
+    <div class="event-modal-body">
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Event Name <span style="color:var(--red)">*</span></label>
+          <input id="fEventName" placeholder="e.g. SIS Basketball Cup 2025" />
+        </div>
+        <div class="form-group">
+          <label>Sport <span style="color:var(--red)">*</span></label>
+          <select id="fSport">
+            <option value="">— Select sport —</option>
+            <option value="basketball">🏀 Basketball</option>
+            <option value="volleyball">🏐 Volleyball</option>
+            <option value="football">⚽ Football</option>
+            <option value="baseball">⚾ Baseball</option>
+            <option value="tennis">🎾 Tennis</option>
+            <option value="swimming">🏊 Swimming</option>
+            <option value="badminton">🏸 Badminton</option>
+            <option value="other">🏆 Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row triple">
+        <div class="form-group">
+          <label>Date <span style="color:var(--red)">*</span></label>
+          <input type="date" id="fEventDate" />
+        </div>
+        <div class="form-group">
+          <label>Start Time</label>
+          <input type="time" id="fEventTime" />
+        </div>
+        <div class="form-group">
+          <label>Call Time <span style="color:var(--red)">*</span></label>
+          <input type="time" id="fCallTime" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Venue <span style="color:var(--red)">*</span></label>
+          <input id="fVenue" placeholder="e.g. Araneta Coliseum" />
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select id="fStatus">
+            <option value="upcoming">Upcoming</option>
+            <option value="ongoing">Ongoing</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row full">
+        <div class="form-group">
+          <label>Description / Notes</label>
+          <textarea id="fNotes" placeholder="Add any event details, special instructions, dress code, etc…"></textarea>
+        </div>
+      </div>
+
+      <!-- Assign Employees -->
+      <div class="assign-section">
+        <div class="assign-section-label">
+          Assign Employees
+          <span class="assign-count" id="assignCount">0 selected</span>
+        </div>
+        <input type="text" class="assign-search" id="assignSearch" placeholder="Search employees…" oninput="filterAssignList()" />
+        <div class="assign-list" id="assignList">
+          <!-- populated by JS -->
+        </div>
+      </div>
+
+    </div><!-- /.event-modal-body -->
+    <div class="event-modal-footer">
+      <button class="btn btn-ghost" onclick="closeCreateModal()">Cancel</button>
+      <button class="btn btn-danger" id="deleteEventBtn" style="display:none;margin-right:auto;" onclick="deleteCurrentEvent()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        Delete
+      </button>
+      <button class="btn btn-primary" id="saveEventBtn" onclick="saveEvent()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Save Event
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     DETAIL MODAL (view)
+     ══════════════════════════════════════════ -->
+<div class="event-modal-overlay" id="detailModalOverlay">
+  <div class="detail-modal" id="detailModalInner">
+    <!-- Populated dynamically -->
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="config.js"></script>
+<script src="auth.js"></script>
+<script src="schedule.js"></script>
+</body>
+</html>
