@@ -765,8 +765,8 @@ async function openAttendanceExpand(eventId) {
     : '40px 1fr 130px 130px 130px';
 
   const headersExp = _isAdmin
-    ? `<span></span><span>Employee</span><span>Time In</span><span>Time Out</span><span>Status</span><span style="text-align:right;">Actions</span>`
-    : `<span></span><span>Employee</span><span>Time In</span><span>Time Out</span><span>Status</span>`;
+    ? `<span></span><span style="text-align:left;">Employee</span><span style="text-align:center;">Time In</span><span style="text-align:center;">Time Out</span><span style="text-align:center;">Status</span><span style="text-align:right;">Actions</span>`
+    : `<span></span><span style="text-align:left;">Employee</span><span style="text-align:center;">Time In</span><span style="text-align:center;">Time Out</span><span style="text-align:center;">Status</span>`;
 
   const rows = assignedUsers.map(u => {
     const rec    = findRec(u);
@@ -799,9 +799,9 @@ async function openAttendanceExpand(eventId) {
       return `<div class="ti-row ti-row-absent ${isMe ? 'ti-row-me' : ''}" style="grid-template-columns:${colsExp};padding:12px 18px;">
         <div class="ti-row-avatar">${initials(u.display_name)}</div>
         <div class="ti-row-name">${escHtml(u.display_name)}${isMe ? ' <span class="ti-you-tag">you</span>' : ''}</div>
-        <div class="ti-row-time ti-absent">—</div>
-        <div class="ti-row-time ti-absent">—</div>
-        <div class="ti-row-time"><span class="ti-status-badge ti-status-absent">Absent</span></div>
+        <div class="ti-row-time ti-absent" style="text-align:center;">—</div>
+        <div class="ti-row-time ti-absent" style="text-align:center;">—</div>
+        <div class="ti-row-time" style="text-align:center;"><span class="ti-status-badge ti-status-absent">Absent</span></div>
         ${adminActions}
       </div>`;
     }
@@ -815,9 +815,9 @@ async function openAttendanceExpand(eventId) {
     return `<div class="ti-row ti-row-present ${isMe ? 'ti-row-me' : ''}" style="grid-template-columns:${colsExp};padding:12px 18px;">
       <div class="ti-row-avatar ti-avatar-in">${initials(u.display_name)}</div>
       <div class="ti-row-name">${escHtml(u.display_name)}${isMe ? ' <span class="ti-you-tag">you</span>' : ''}</div>
-      <div class="ti-row-time ti-in">${fmtTimeStamp(rec.time_in)}</div>
-      <div class="ti-row-time ${hasOut ? 'ti-out' : 'ti-pending'}">${hasOut ? fmtTimeStamp(rec.time_out) : '…'}</div>
-      <div class="ti-row-time">${statusBadge}</div>
+      <div class="ti-row-time ti-in" style="text-align:center;">${fmtTimeStamp(rec.time_in)}</div>
+      <div class="ti-row-time ${hasOut ? 'ti-out' : 'ti-pending'}" style="text-align:center;">${hasOut ? fmtTimeStamp(rec.time_out) : '…'}</div>
+      <div class="ti-row-time" style="text-align:center;">${statusBadge}</div>
       ${adminActions}
     </div>`;
   }).join('');
@@ -826,7 +826,7 @@ async function openAttendanceExpand(eventId) {
 
   document.getElementById('attendanceExpandCount').textContent = `${presentCount}/${assignedUsers.length} clocked in`;
   document.getElementById('attendanceExpandBody').innerHTML = `
-    <div style="display:grid;grid-template-columns:${colsExp};padding:6px 18px;background:var(--surface2);border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-muted);">
+    <div style="display:grid;grid-template-columns:${colsExp};padding:6px 18px;background:var(--surface2);border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-muted);align-items:center;">
       ${headersExp}
     </div>
     ${rows || `<div class="ti-empty">No assignees yet.</div>`}`;
