@@ -37,7 +37,8 @@ async function dbPatch(url, body) {
 }
 
 async function dbDelete(url) {
-  const res = await fetch(url, { method: 'DELETE', headers: dbHeaders() });
+  const headers = { ...dbHeaders(), 'Prefer': 'return=minimal' };
+  const res = await fetch(url, { method: 'DELETE', headers });
   if (!res.ok) { const t = await res.text(); throw new Error(`DELETE ${url} → ${res.status}: ${t}`); }
 }
 
@@ -715,14 +716,53 @@ async function resetAttendanceRecord(eventId, username, displayName) {
   if (!_isAdmin) return;
   const rec = (window._tiRecordCache[eventId] || {})[username];
   if (!rec) { toast('No record found to reset.', 'error'); return; }
+
   if (!confirm(`Reset attendance for ${displayName}? This will permanently delete their clock-in record for this event.`)) return;
 
-  try {
-    await dbDelete(`${EVENT_TIMEIN_URL}?id=eq.${rec.id}`);
+  let deleted = false;
+
+  // Strategy 1: delete by id (UUID)
+  if (rec.id) {
+    try {
+      const url = `${EVENT_TIMEIN_URL}?id=eq.${rec.id}`;
+      const headers = { ...dbHeaders(), 'Prefer': 'return=minimal' };
+      const res = await fetch(url, { method: 'DELETE', headers });
+      if (res.ok || res.status === 204) {
+        deleted = true;
+      } else {
+        const errText = await res.text();
+        console.warn('[reset by id failed]', res.status, errText);
+      }
+    } catch(e) { console.warn('[reset by id error]', e); }
+  }
+
+  // Strategy 2: delete by event_id + name (fallback if id delete was blocked)
+  if (!deleted && rec.name) {
+    try {
+      const url = `${EVENT_TIMEIN_URL}?event_id=eq.${eventId}&name=eq.${encodeURIComponent(rec.name)}`;
+      const headers = { ...dbHeaders(), 'Prefer': 'return=minimal' };
+      const res = await fetch(url, { method: 'DELETE', headers });
+      if (res.ok || res.status === 204) {
+        deleted = true;
+      } else {
+        const errText = await res.text();
+        console.warn('[reset by name failed]', res.status, errText);
+        toast(`Reset blocked by database policy. Check Supabase RLS for event_timein_logs. (${res.status})`, 'error');
+        return;
+      }
+    } catch(e) {
+      console.error('[reset by name error]', e);
+      toast('Reset failed: ' + e.message, 'error');
+      return;
+    }
+  }
+
+  if (deleted) {
+    delete window._tiRecordCache[eventId][username];
     toast(`Attendance reset for ${displayName}.`, 'success');
     await refreshTimeInPanel(eventId);
-  } catch (e) {
-    toast('Reset failed: ' + e.message, 'error');
+  } else {
+    toast('Could not delete record — check Supabase RLS policies on event_timein_logs.', 'error');
   }
 }
 
