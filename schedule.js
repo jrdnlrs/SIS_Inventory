@@ -1594,101 +1594,113 @@ async function runEventPayroll() {
 
     // ── Build PDF ──
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-    const pageW = doc.internal.pageSize.getWidth();
-    const pad   = 14;
+    // A4 portrait: 210 × 297 mm
+    const pageW = doc.internal.pageSize.getWidth();   // 210
+    const pageH = doc.internal.pageSize.getHeight();  // 297
+    const pad   = 12;
     const ink   = [30, 30, 30];
     const muted = [120, 120, 120];
     const rule  = [210, 210, 210];
 
     // White background
     doc.setFillColor(255, 255, 255);
-    doc.rect(0, 0, pageW, doc.internal.pageSize.getHeight(), 'F');
+    doc.rect(0, 0, pageW, pageH, 'F');
 
     // Company name
-    let y = 16;
+    let y = 14;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
+    doc.setFontSize(12);
     doc.setTextColor(...ink);
     doc.text('Supreme InfoTech Solutions', pad, y);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(...muted);
-    doc.text('Event Payroll Report', pad, y + 6);
-
-    // Generated timestamp (right-aligned)
     doc.setFontSize(7.5);
     doc.setTextColor(...muted);
-    doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, pageW - pad, y + 6, { align: 'right' });
+    doc.text('Event Payroll Report', pad, y + 5);
+
+    // Generated timestamp (right-aligned)
+    doc.setFontSize(7);
+    doc.setTextColor(...muted);
+    doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, pageW - pad, y + 5, { align: 'right' });
 
     // Divider
-    y += 12;
+    y += 10;
     doc.setDrawColor(...rule);
     doc.setLineWidth(0.4);
     doc.line(pad, y, pageW - pad, y);
-    y += 6;
+    y += 5;
 
-    // Event name + meta
+    // Event name
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setTextColor(...ink);
     doc.text(ev.event_name || 'Untitled Event', pad, y);
 
-    const metaParts = [
+    // Meta — split into two lines to avoid overflow on narrow portrait width
+    const metaLine1 = [
       ev.sport ? ev.sport.charAt(0).toUpperCase() + ev.sport.slice(1) : '',
-      ev.venue ? `Venue: ${ev.venue}` : '',
       `Date: ${eventDateLabel}`,
+    ].filter(Boolean).join('   ·   ');
+
+    const metaLine2 = [
+      ev.venue ? `Venue: ${ev.venue}` : '',
       ev.call_time ? `Call Time: ${formatDisplayTime(ev.call_time)}` : '',
     ].filter(Boolean).join('   ·   ');
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(...muted);
-    doc.text(metaParts, pad, y + 6);
+    if (metaLine1) doc.text(metaLine1, pad, y + 5);
+    if (metaLine2) doc.text(metaLine2, pad, y + 10);
 
-    // Table
+    const tableStartY = metaLine2 ? y + 16 : y + 11;
+
+    // ── Portrait A4 usable width: 210 - 2×12 = 186 mm
+    // Column widths must sum to ≤ 186
+    // Name: 50 | Date: 30 | Rate: 28 | Late: 28 | Net: 28 | Sig: 22 = 186
     doc.autoTable({
-      startY: y + 14,
+      startY: tableStartY,
       head: [['Employee Name', 'Event Date', 'Daily Rate', 'Late Deduction', 'Net Salary', 'Signature']],
       body: tableRows,
       margin: { left: pad, right: pad },
+      tableWidth: pageW - pad * 2,
       styles: {
         font: 'helvetica',
-        fontSize: 9,
-        cellPadding: 7,
+        fontSize: 8,
+        cellPadding: { top: 4, bottom: 4, left: 3, right: 3 },
         lineColor: rule,
         lineWidth: 0.3,
         textColor: ink,
         fillColor: [255, 255, 255],
         valign: 'middle',
         halign: 'center',
-        minCellHeight: 16,
+        minCellHeight: 10,
+        overflow: 'linebreak',
       },
       headStyles: {
         fillColor: [245, 245, 245],
         textColor: ink,
         fontStyle: 'bold',
-        fontSize: 8,
+        fontSize: 7.5,
         halign: 'center',
         valign: 'middle',
         lineColor: rule,
-        minCellHeight: 14,
+        minCellHeight: 10,
       },
       alternateRowStyles: {
         fillColor: [250, 250, 250],
       },
       columnStyles: {
-        0: { cellWidth: 52, fontStyle: 'bold', halign: 'left' },
-        1: { cellWidth: 36 },
-        2: { cellWidth: 38 },
-        3: { cellWidth: 38 },
-        4: { cellWidth: 38, fontStyle: 'bold' },
-        5: { cellWidth: 'auto' },
+        0: { cellWidth: 50, fontStyle: 'bold', halign: 'left' },
+        1: { cellWidth: 30 },
+        2: { cellWidth: 28 },
+        3: { cellWidth: 28 },
+        4: { cellWidth: 28, fontStyle: 'bold' },
+        5: { cellWidth: 22 },
       },
       didParseCell(data) {
-        // Force center + middle on every body cell except col 0
         if (data.section === 'body' && data.column.index !== 0) {
           data.cell.styles.halign = 'center';
           data.cell.styles.valign = 'middle';
@@ -1704,14 +1716,14 @@ async function runEventPayroll() {
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
-      const y = doc.internal.pageSize.getHeight() - 7;
+      const fy = pageH - 7;
       doc.setDrawColor(...rule);
       doc.setLineWidth(0.3);
-      doc.line(pad, y - 2, pageW - pad, y - 2);
+      doc.line(pad, fy - 2, pageW - pad, fy - 2);
       doc.setFontSize(7);
       doc.setTextColor(...muted);
-      doc.text('Supreme InfoTech Solutions — Confidential', pad, y);
-      doc.text(`Page ${i} of ${pageCount}`, pageW - pad, y, { align: 'right' });
+      doc.text('Supreme InfoTech Solutions — Confidential', pad, fy);
+      doc.text(`Page ${i} of ${pageCount}`, pageW - pad, fy, { align: 'right' });
     }
 
     // Save
