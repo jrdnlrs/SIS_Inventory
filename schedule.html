@@ -13,7 +13,33 @@
    SCHEDULE PAGE — schedule.css (inline)
    ══════════════════════════════════════════ */
 
-/* ── ATTENDANCE STATUS BADGES ── */
+/* ── ASSIGN HOLE INPUT ── */
+.assign-hole-input {
+  width: 64px;
+  padding: 4px 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--accent-bright);
+  outline: none;
+  margin-left: auto;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  -moz-appearance: textfield;
+}
+.assign-hole-input::-webkit-outer-spin-button,
+.assign-hole-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.assign-hole-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+.assign-hole-input:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
 .ti-status-badge {
   display: inline-block;
   font-family: 'JetBrains Mono', monospace;
@@ -313,6 +339,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  overflow-x: auto;
   margin-bottom: 6px;
 }
 
@@ -1091,8 +1118,8 @@
   border: 1px solid var(--border-bright);
   border-radius: var(--radius-lg);
   width: 100%;
-  max-width: 580px;
-  max-height: 90vh;
+  max-width: 620px;
+  max-height: 92vh;
   overflow-y: auto;
   box-shadow: 0 24px 80px rgba(0,0,0,0.5);
 }
@@ -1178,10 +1205,16 @@
 
 .detail-info-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
   margin-bottom: 20px;
 }
+
+/* Make the last item (status) span 1 col naturally — no special span needed */
+.detail-info-grid .detail-info-item:last-child:nth-child(3n+1) {
+  grid-column: 1 / -1;
+}
+
 
 .detail-info-item {
   background: var(--surface2);
@@ -1464,7 +1497,7 @@
         </div>
         <div class="form-group">
           <label>Sport <span style="color:var(--red)">*</span></label>
-          <select id="fSport">
+          <select id="fSport" onchange="filterAssignList()">
             <option value="">— Select sport —</option>
             <option value="golf">⛳ Golf</option>
             <option value="baseball">⚾ Baseball</option>
@@ -1577,7 +1610,13 @@
         Attendance
         <span id="attendanceExpandCount" class="ti-count"></span>
       </div>
-      <button class="ti-expand-close" onclick="closeAttendanceExpand()">✕</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button id="runPayrollBtn" class="btn btn-primary" onclick="runEventPayroll()" style="display:flex;align-items:center;gap:7px;padding:7px 16px;font-size:13px;font-weight:700;letter-spacing:0.3px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          Run Payroll
+        </button>
+        <button class="ti-expand-close" onclick="closeAttendanceExpand()">✕</button>
+      </div>
     </div>
     <div class="ti-expand-body" id="attendanceExpandBody">
       <!-- populated by JS -->
@@ -1588,6 +1627,8 @@
 <!-- TOAST -->
 <div class="toast-container" id="toastContainer"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 <script src="config.js"></script>
 <script src="auth.js"></script>
 <script src="schedule.js"></script>

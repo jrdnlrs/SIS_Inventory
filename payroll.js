@@ -1,19 +1,11 @@
 /* ─────────────────────────────────────────
-   SIS — payroll.js  (v2)
+   SIS — payroll.js
    Employee management, DTR upload,
    payroll computation, payslip PDF generation.
 
-   Regular Employees:
+   Regular Employees only:
    • Daily rate × days present (prorated from working days)
    • SSS, PhilHealth, Pag-IBIG, Withholding Tax (toggleable)
-
-   Event-Based Employees:
-   • ₱2,000 flat per day
-   • Late deduction = minutes late × (2000 ÷ 480)
-   • No government contributions or tax (gross = net)
-   • DTR columns: Name · Role · Time In · Time Out · Working Hours · Status
-
-   Both types can appear in the same pay run.
    ───────────────────────────────────────── */
 
 // ── SUPABASE TABLES ────────────────────────
@@ -33,16 +25,11 @@ function makeDbHeaders(extra = {}) {
 
 // ── STATE ──────────────────────────────────
 let employees      = [];
-let dtrRows        = [];        // regular DTR rows
-let eventDtrRows   = [];        // event DTR rows
-let computedRows   = [];        // all computed rows (regular + event merged)
+let dtrRows        = [];
+let computedRows   = [];
 let payrollHistory = [];
-let currentPayType = 'regular'; // 'regular' | 'event'
-let taxMode        = 'bir';     // 'bir' | 'flat'
-let flatRatePct    = 10;        // flat rate %
-
-const EVENT_DAY_RATE    = 2000;           // ₱2,000 per event day
-const EVENT_RATE_PER_MIN = EVENT_DAY_RATE / 480; // ₱4.1667/minute
+let taxMode        = 'bir';
+let flatRatePct    = 10;
 
 // ── SUPABASE HELPERS ───────────────────────
 async function sbGet(url) {
@@ -109,30 +96,6 @@ function switchTab(name, btn) {
   if (name === 'history') loadHistory();
 }
 
-// ── PAY TYPE TOGGLE ────────────────────────
-function switchPayType(type, btn) {
-  currentPayType = type;
-  document.querySelectorAll('.pay-type-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-
-  const regularSection = document.getElementById('dtrRegularSection');
-  const eventSection   = document.getElementById('dtrEventSection');
-
-  if (type === 'regular') {
-    regularSection.style.display = 'block';
-    eventSection.style.display   = 'none';
-  } else {
-    regularSection.style.display = 'none';
-    eventSection.style.display   = 'block';
-  }
-
-  // Clear preview when switching types
-  eventDtrRows = [];
-  dtrRows      = [];
-  document.getElementById('dtrPreview').style.display        = 'none';
-  document.getElementById('payrollSummaryBar').style.display = 'none';
-}
-
 // ── TAX MODE ───────────────────────────────
 function setTaxMode(mode) {
   taxMode = mode;
@@ -151,199 +114,7 @@ function toggleGovContrib(type, checkbox) {
   // Visual feedback only — actual toggle state is read at compute time
 }
 
-// ═══════════════════════════════════════════
-//  EVENT SHIFT SCHEDULE
-//  Per-day shift start times — used to compute
-//  minutes late for event employees.
-//  eventShiftDays = [{ date: 'YYYY-MM-DD', shiftStart: 'HH:MM', shiftStartMin: 480 }]
-// ═══════════════════════════════════════════
-
-let eventShiftDays = []; // array of { id, date, shiftStart }
-
-function addEventShiftDay() {
-  const month = document.getElementById('payMonth').value;
-  // Default date: today or first of pay month
-  const defaultDate = month
-    ? `${month}-01`
-    : new Date().toISOString().slice(0, 10);
-
-  const id = uid();
-  eventShiftDays.push({ id, date: defaultDate, shiftStart: '08:00' });
-  renderEventShiftSchedule();
-}
-
-function removeEventShiftDay(id) {
-  eventShiftDays = eventShiftDays.filter(d => d.id !== id);
-  renderEventShiftSchedule();
-}
-
-function updateEventShiftDay(id, field, value) {
-  const day = eventShiftDays.find(d => d.id === id);
-  if (day) day[field] = value;
-}
-
-function renderEventShiftSchedule() {
-  const container = document.getElementById('eventShiftSchedule');
-  const empty     = document.getElementById('eventShiftEmpty');
-
-  if (!eventShiftDays.length) {
-    container.innerHTML = '';
-    empty.style.display = 'block';
-    return;
-  }
-
-  empty.style.display = 'none';
-  container.innerHTML = eventShiftDays.map(d => `
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <div>
-        <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.8px;">Event Date</div>
-        <input type="date" value="${d.date}"
-          onchange="updateEventShiftDay('${d.id}', 'date', this.value)"
-          style="padding:7px 11px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;"
-          onfocus="this.style.borderColor='#a78bfa'" onblur="this.style.borderColor='var(--border)'" />
-      </div>
-      <div>
-        <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.8px;">Shift Start</div>
-        <input type="time" value="${d.shiftStart}"
-          onchange="updateEventShiftDay('${d.id}', 'shiftStart', this.value)"
-          style="padding:7px 11px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;"
-          onfocus="this.style.borderColor='#a78bfa'" onblur="this.style.borderColor='var(--border)'" />
-      </div>
-      <div style="align-self:flex-end;padding-bottom:2px;">
-        <button class="btn btn-danger" style="padding:7px 10px;" onclick="removeEventShiftDay('${d.id}')">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
-    </div>`).join('');
-}
-
-/**
- * Get shift start in minutes for a given date string 'YYYY-MM-DD'.
- * Falls back to 8:00 AM (480) if date not in schedule.
- */
-function getShiftStartMin(dateStr) {
-  const day = eventShiftDays.find(d => d.date === dateStr);
-  if (!day) return 8 * 60; // default 8:00 AM
-  const [hh, mm] = (day.shiftStart || '08:00').split(':').map(Number);
-  return hh * 60 + (mm || 0);
-}
-
-// ── EVENT DTR SOURCE TOGGLE ────────────────
-function switchEventDtrSource(src) {
-  const livePanel = document.getElementById('evtLiveDtrPanel');
-  const filePanel = document.getElementById('evtFileDtrPanel');
-  const btnLive   = document.getElementById('evtSrcLive');
-  const btnFile   = document.getElementById('evtSrcFile');
-
-  if (src === 'live') {
-    livePanel.style.display = 'flex';
-    filePanel.style.display = 'none';
-    btnLive.classList.add('active');
-    btnFile.classList.remove('active');
-  } else {
-    livePanel.style.display = 'none';
-    filePanel.style.display = 'flex';
-    btnFile.classList.add('active');
-    btnLive.classList.remove('active');
-  }
-
-  eventDtrRows = [];
-  document.getElementById('dtrPreview').style.display        = 'none';
-  document.getElementById('payrollSummaryBar').style.display = 'none';
-}
-
-// ═══════════════════════════════════════════
-//  LIVE EVENT DTR LOADER
-//  Pulls dtr_logs for the event dates in the
-//  shift schedule, computes minutes late per
-//  employee per day using time_in vs shift start.
-// ═══════════════════════════════════════════
-
-async function loadLiveEventDtr() {
-  if (!eventShiftDays.length) {
-    toast('Add at least one event day to the shift schedule first.', 'error');
-    return;
-  }
-
-  const dates = eventShiftDays.map(d => d.date).sort();
-  setLoading(true);
-
-  try {
-    const DTR_URL = `${SUPABASE_URL}/rest/v1/dtr_logs`;
-    // Fetch logs for all event dates
-    const dateFilter = dates.map(d => `date=eq.${d}`).join('&');
-    const logs = await sbGet(
-      `${DTR_URL}?or=(${dates.map(d => `date.eq.${d}`).join(',')})&time_in=not.is.null&select=employee_id,date,time_in,time_out,is_late`
-    );
-
-    if (!logs.length) {
-      toast('No punch records found for the selected event dates.', 'error');
-      setLoading(false);
-      return;
-    }
-
-    // Group by employee_id → array of day records
-    const empMap = {}; // employee_id → [{ date, timeInMin, timeOutMin, minutesLate }]
-    logs.forEach(log => {
-      const shiftStartMin = getShiftStartMin(log.date);
-      const timeInMin     = parseTimeToMinutes(log.time_in);
-      const timeOutMin    = parseTimeToMinutes(log.time_out);
-      const minutesLate   = (timeInMin !== null && timeInMin > shiftStartMin)
-        ? timeInMin - shiftStartMin
-        : 0;
-
-      if (!empMap[log.employee_id]) empMap[log.employee_id] = [];
-      empMap[log.employee_id].push({
-        date:        log.date,
-        timeInMin,
-        timeOutMin,
-        minutesLate,
-        shiftStartMin,
-        status:      minutesLate > 0 ? 'Late' : 'Present',
-        source:      'live',
-      });
-    });
-
-    const idToEmp = {};
-    employees.forEach(e => { idToEmp[e.id] = e; });
-
-    eventDtrRows = [];
-    const unmatchedIds = [];
-
-    Object.entries(empMap).forEach(([empId, days]) => {
-      const emp = idToEmp[empId];
-      if (!emp) { unmatchedIds.push(empId); return; }
-      eventDtrRows.push({
-        name:   emp.name,
-        role:   emp.position || '',
-        days,
-        source: 'live',
-      });
-    });
-
-    if (!eventDtrRows.length) {
-      toast('Punch records found but no employees matched the roster.', 'error');
-      setLoading(false);
-      return;
-    }
-
-    renderDtrPreview('event');
-    document.getElementById('dtrPreview').style.display = 'block';
-
-    const msg = unmatchedIds.length
-      ? `Live event DTR loaded — ${eventDtrRows.length} employees. ${unmatchedIds.length} unmatched record(s).`
-      : `Live event DTR loaded — ${eventDtrRows.length} employees across ${dates.length} event day(s).`;
-    toast(msg, unmatchedIds.length ? 'info' : 'success');
-
-  } catch (err) {
-    console.error('[loadLiveEventDtr]', err);
-    toast('Failed to load live event DTR records. Check Supabase connection.', 'error');
-  } finally {
-    setLoading(false);
-  }
-}
-
-// ── DTR SOURCE TOGGLE (Regular) ────────────
+// ── DTR SOURCE TOGGLE ─────────────────────
 function switchDtrSource(src) {
   const livePanel = document.getElementById('liveDtrPanel');
   const filePanel = document.getElementById('fileDtrPanel');
@@ -377,22 +148,11 @@ function uid() {
 }
 
 // ── TIME PARSING ───────────────────────────
-/**
- * Parse a time string like "8:00 AM", "08:00", "8:00:00 AM" → total minutes from midnight.
- * Returns null if unparseable.
- */
 function parseTimeToMinutes(raw) {
   if (raw === null || raw === undefined) return null;
-
-  // Excel serial time (fraction of a day)
-  if (typeof raw === 'number') {
-    return Math.round(raw * 24 * 60);
-  }
-
+  if (typeof raw === 'number') return Math.round(raw * 24 * 60);
   const s = String(raw).trim();
   if (!s) return null;
-
-  // HH:MM AM/PM or H:MM AM/PM
   const ampm = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$/i);
   if (ampm) {
     let h = parseInt(ampm[1], 10);
@@ -402,30 +162,13 @@ function parseTimeToMinutes(raw) {
     if (period === 'AM' && h === 12) h = 0;
     return h * 60 + m;
   }
-
-  // HH:MM or HH:MM:SS (24-hr)
   const hhmm = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
-  if (hhmm) {
-    return parseInt(hhmm[1], 10) * 60 + parseInt(hhmm[2], 10);
-  }
-
+  if (hhmm) return parseInt(hhmm[1], 10) * 60 + parseInt(hhmm[2], 10);
   return null;
 }
 
-/**
- * Format total minutes → "H:MM AM/PM"
- */
-function formatMinutes(totalMin) {
-  if (totalMin === null || totalMin === undefined) return '—';
-  const h   = Math.floor(totalMin / 60) % 24;
-  const m   = totalMin % 60;
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const hh   = h % 12 || 12;
-  return `${hh}:${String(m).padStart(2, '0')} ${ampm}`;
-}
-
 // ═══════════════════════════════════════════
-//  DEDUCTION COMPUTATIONS (Regular)
+//  DEDUCTION COMPUTATIONS
 // ═══════════════════════════════════════════
 
 function computeSSS(monthlyGross) {
@@ -481,61 +224,14 @@ function computePayForEmployee(emp, daysPresent, workingDays) {
 }
 
 // ═══════════════════════════════════════════
-//  EVENT PAY COMPUTATION
-//  ₱2,000/day, deduct per-minute if late.
-//  No government deductions — gross = net.
-// ═══════════════════════════════════════════
-
-/**
- * Compute event pay for one employee.
- * days[] each have: { date, timeInMin, minutesLate, status }
- * ₱2,000/day · late deduction = minutesLate × (2000 ÷ 480)
- * No gov contributions or tax.
- */
-function computeEventPay(row) {
-  let gross         = 0;
-  let lateDeduction = 0;
-  let lateDays      = 0;
-  let presentDays   = 0;
-
-  row.days.forEach(d => {
-    const status = (d.status || '').trim();
-    const isPresentOrLate = /present|late/i.test(status);
-    if (!isPresentOrLate) return; // absent = no pay
-
-    gross += EVENT_DAY_RATE;
-    presentDays++;
-
-    const minLate = d.minutesLate || 0;
-    if (minLate > 0) {
-      const ded = Math.round(minLate * EVENT_RATE_PER_MIN * 100) / 100;
-      lateDeduction += ded;
-      lateDays++;
-    }
-  });
-
-  const net = Math.max(0, Math.round((gross - lateDeduction) * 100) / 100);
-  return {
-    gross:         Math.round(gross * 100) / 100,
-    lateDeduction: Math.round(lateDeduction * 100) / 100,
-    net,
-    totalDays:     presentDays,
-    lateDays,
-    daysPresent:   presentDays,
-    workingDays:   presentDays,
-    sss: 0, philhealth: 0, pagibig: 0, tax: 0,
-    totalDed:      Math.round(lateDeduction * 100) / 100,
-  };
-}
-
-// ═══════════════════════════════════════════
 //  EMPLOYEES CRUD
 // ═══════════════════════════════════════════
 
 async function loadEmployees() {
   setLoading(true);
   try {
-    employees = await sbGet(`${EMP_URL}?select=*&order=name.asc`);
+    // Only load regular employees
+    employees = await sbGet(`${EMP_URL}?select=*&emp_type=eq.regular&order=name.asc`);
     renderEmployees();
   } catch (err) {
     console.error(err);
@@ -557,20 +253,11 @@ function renderEmployees() {
     return;
   }
 
-  tbody.innerHTML = employees.map(e => {
-    const typeTag = e.emp_type === 'event'
-      ? `<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(167,139,250,0.1);color:#a78bfa;border:1px solid rgba(167,139,250,0.2);font-family:'JetBrains Mono',monospace;margin-left:6px">EVENT</span>`
-      : `<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(52,211,153,0.08);color:var(--green);border:1px solid rgba(52,211,153,0.15);font-family:'JetBrains Mono',monospace;margin-left:6px">REGULAR</span>`;
-
-    const rateLabel = e.emp_type === 'event'
-      ? `<span style="color:var(--text-muted);font-size:11px">₱2,000/day (fixed)</span>`
-      : `<span class="mono">${peso(e.daily_rate)}/day</span>`;
-
-    return `
-    <tr class="${e.emp_type === 'event' ? 'emp-type-event' : ''}">
-      <td><strong>${e.name}</strong>${typeTag}</td>
+  tbody.innerHTML = employees.map(e => `
+    <tr>
+      <td><strong>${e.name}</strong></td>
       <td style="color:var(--text-muted);font-size:12px">${e.position || '—'}</td>
-      <td>${rateLabel}</td>
+      <td><span class="mono">${peso(e.daily_rate)}/day</span></td>
       <td class="mono" style="font-size:11px;color:var(--text-muted)">${e.sss_no || '—'}</td>
       <td class="mono" style="font-size:11px;color:var(--text-muted)">${e.philhealth_no || '—'}</td>
       <td class="mono" style="font-size:11px;color:var(--text-muted)">${e.pagibig_no || '—'}</td>
@@ -581,18 +268,11 @@ function renderEmployees() {
           <button class="btn btn-danger" onclick="deleteEmployee('${e.id}')">Delete</button>
         </div>
       </td>
-    </tr>`;
-  }).join('');
+    </tr>`).join('');
 }
 
 // ── EMPLOYEE MODAL ─────────────────────────
 let editEmpId = null;
-
-function toggleEmpTypeFields() {
-  const type = document.getElementById('efType').value;
-  document.getElementById('rateRegularGroup').style.display = type === 'regular' ? '' : 'none';
-  document.getElementById('rateEventGroup').style.display   = type === 'event'   ? '' : 'none';
-}
 
 function openEmpModal(id = null) {
   editEmpId = id;
@@ -600,14 +280,11 @@ function openEmpModal(id = null) {
   const emp = id ? employees.find(e => e.id === id) || {} : {};
   document.getElementById('efName').value       = emp.name          || '';
   document.getElementById('efPosition').value   = emp.position      || '';
-  document.getElementById('efType').value       = emp.emp_type      || 'regular';
   document.getElementById('efRate').value       = emp.daily_rate    || '';
-  document.getElementById('efEventRate').value  = emp.event_rate    || '';
   document.getElementById('efSss').value        = emp.sss_no        || '';
   document.getElementById('efPhilhealth').value = emp.philhealth_no || '';
   document.getElementById('efPagibig').value    = emp.pagibig_no    || '';
   document.getElementById('efStatus').value     = emp.status        || 'active';
-  toggleEmpTypeFields();
   document.getElementById('empOverlay').classList.add('open');
   setTimeout(() => document.getElementById('efName').focus(), 100);
 }
@@ -622,29 +299,17 @@ function closeEmpModalOutside(e) {
 }
 
 async function saveEmployee() {
-  const name    = document.getElementById('efName').value.trim();
-  const empType = document.getElementById('efType').value;
+  const name      = document.getElementById('efName').value.trim();
+  const daily_rate = parseFloat(document.getElementById('efRate').value);
 
-  if (!name) { toast('Name is required.', 'error'); return; }
-
-  let daily_rate  = null;
-  let event_rate  = null;
-
-  if (empType === 'regular') {
-    daily_rate = parseFloat(document.getElementById('efRate').value);
-    if (!daily_rate || daily_rate <= 0) { toast('Daily rate is required for regular employees.', 'error'); return; }
-  } else {
-    // Event-based: rate is fixed ₱2,000 but store their profile event_rate field too
-    event_rate = parseFloat(document.getElementById('efEventRate').value) || EVENT_DAY_RATE;
-    daily_rate = event_rate; // store for reference; actual compute uses EVENT_DAY_RATE constant
-  }
+  if (!name)                          { toast('Name is required.', 'error'); return; }
+  if (!daily_rate || daily_rate <= 0) { toast('Daily rate is required.', 'error'); return; }
 
   const data = {
     name,
     position:      document.getElementById('efPosition').value.trim(),
-    emp_type:      empType,
+    emp_type:      'regular',
     daily_rate,
-    event_rate,
     sss_no:        document.getElementById('efSss').value.trim(),
     philhealth_no: document.getElementById('efPhilhealth').value.trim(),
     pagibig_no:    document.getElementById('efPagibig').value.trim(),
@@ -766,7 +431,7 @@ function onDtrFileChosen(e) {
         return;
       }
 
-      renderDtrPreview('regular');
+      renderDtrPreview();
       document.getElementById('dtrPreview').style.display = 'block';
       toast(`DTR loaded — ${dtrRows.length} employees across ${validDays} day${validDays !== 1 ? 's' : ''}.`, 'success');
 
@@ -776,163 +441,6 @@ function onDtrFileChosen(e) {
     }
   };
   reader.readAsBinaryString(file);
-}
-
-// ═══════════════════════════════════════════
-//  EVENT DTR — EXCEL UPLOAD (fallback)
-//
-//  Columns: Name | Role | Date | Time In | Time Out | Working Hours | Status
-//  Minutes late = actual Time In − shift start for that date (from eventShiftDays).
-//  Falls back to 8:00 AM if date not in shift schedule.
-// ═══════════════════════════════════════════
-
-function onEventDtrFileChosen(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = function (evt) {
-    try {
-      const wb     = XLSX.read(evt.target.result, { type: 'binary', cellDates: false });
-      const empMap = {}; // normalizedKey → { name, role, days[], source }
-
-      wb.SheetNames.forEach(sheetName => {
-        const ws = wb.Sheets[sheetName];
-        if (!ws || !ws['!ref']) return;
-
-        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
-
-        // Find header row
-        let headerIdx = -1;
-        for (let i = 0; i < Math.min(10, rows.length); i++) {
-          const r = rows[i] || [];
-          const hasName = r.some(v => typeof v === 'string' && /name/i.test(v));
-          const hasTime = r.some(v => typeof v === 'string' && /time|status/i.test(v));
-          if (hasName && hasTime) { headerIdx = i; break; }
-        }
-        if (headerIdx === -1) return;
-
-        const hdr = rows[headerIdx] || [];
-        const col = (keywords) => hdr.findIndex(v =>
-          typeof v === 'string' && keywords.some(kw => v.toLowerCase().includes(kw))
-        );
-
-        const NC  = col(['employee name', 'name']);
-        const RC  = col(['role', 'position']);
-        const DC  = col(['date']);
-        const TIC = col(['time in', 'timein', 'time_in']);
-        const TOC = col(['time out', 'timeout', 'time_out']);
-        const WHC = col(['working hours', 'hours']);
-        const SC  = col(['status']);
-
-        if (NC === -1) return;
-
-        for (let i = headerIdx + 1; i < rows.length; i++) {
-          const row = rows[i];
-          if (!row) continue;
-
-          const rawName = row[NC];
-          if (!rawName || typeof rawName === 'number') continue;
-          const trimmed = String(rawName).trim();
-          if (!trimmed || /^total/i.test(trimmed)) continue;
-
-          const name = trimmed.replace(/\s*\*+\s*$/, '').replace(/\s+/g, ' ').trim();
-          if (!name) continue;
-
-          const role = RC !== -1 && row[RC] ? String(row[RC]).trim() : '';
-
-          // Parse date — Excel serial or string
-          let dateStr = sheetName; // fallback: use sheet name as date label
-          if (DC !== -1 && row[DC] !== null) {
-            const rawDate = row[DC];
-            if (typeof rawDate === 'number') {
-              const d = new Date(Math.round((rawDate - 25569) * 86400 * 1000));
-              dateStr = d.toISOString().slice(0, 10);
-            } else if (typeof rawDate === 'string' && rawDate.trim()) {
-              const parsed = new Date(rawDate.trim());
-              if (!isNaN(parsed)) dateStr = parsed.toISOString().slice(0, 10);
-            }
-          }
-
-          // Parse times
-          const timeInMin  = TIC !== -1 ? parseTimeToMinutes(row[TIC]) : null;
-          const timeOutMin = TOC !== -1 ? parseTimeToMinutes(row[TOC]) : null;
-
-          // Get shift start for this specific date from the schedule
-          const shiftStartMin = getShiftStartMin(dateStr);
-
-          // Minutes late = how many minutes after shift start did they clock in
-          const minutesLate = (timeInMin !== null && timeInMin > shiftStartMin)
-            ? timeInMin - shiftStartMin
-            : 0;
-
-          // Derive status from time if no status column
-          let status = SC !== -1 && row[SC] ? String(row[SC]).trim() : '';
-          if (!status && timeInMin !== null) {
-            status = minutesLate > 0 ? 'Late' : 'Present';
-          }
-          if (!status) continue;
-
-          // Working hours
-          let workingHours = null;
-          if (WHC !== -1 && row[WHC] !== null) {
-            const rawWH = row[WHC];
-            workingHours = typeof rawWH === 'number'
-              ? (rawWH < 2 ? Math.round(rawWH * 24 * 100) / 100 : rawWH)
-              : (parseFloat(String(rawWH)) || null);
-          } else if (timeInMin !== null && timeOutMin !== null && timeOutMin > timeInMin) {
-            workingHours = Math.round((timeOutMin - timeInMin) / 60 * 100) / 100;
-          }
-
-          const key = normalizeName(name);
-          if (!empMap[key]) empMap[key] = { name, role, days: [], source: 'excel' };
-
-          empMap[key].days.push({
-            date:         dateStr,
-            timeInMin,
-            timeOutMin,
-            workingHours,
-            minutesLate,
-            shiftStartMin,
-            status,
-            source:       'excel',
-          });
-        }
-      });
-
-      eventDtrRows = Object.values(empMap).filter(r => r.days.length > 0);
-
-      if (!eventDtrRows.length) {
-        toast('No event employee rows found. Check your file has Name and Time In columns.', 'error');
-        return;
-      }
-
-      renderDtrPreview('event');
-      document.getElementById('dtrPreview').style.display = 'block';
-      toast(`Event DTR loaded — ${eventDtrRows.length} employees.`, 'success');
-
-    } catch (err) {
-      console.error('[Event DTR parse error]', err);
-      toast('Could not read the event DTR file.', 'error');
-    }
-  };
-  reader.readAsBinaryString(file);
-}
-
-// ── EVENT DTR TEMPLATE ────────────────────
-function downloadEventDtrTemplate() {
-  const data = [
-    { 'Employee Name': 'Juan dela Cruz', 'Role': 'Operator',   'Date': '2025-06-10', 'Time In': '8:00 AM',  'Time Out': '5:00 PM', 'Working Hours': 9,    'Status': 'Present' },
-    { 'Employee Name': 'Maria Santos',   'Role': 'Marshaller', 'Date': '2025-06-10', 'Time In': '8:18 AM',  'Time Out': '5:00 PM', 'Working Hours': 8.7,  'Status': 'Late'    },
-    { 'Employee Name': 'Juan dela Cruz', 'Role': 'Operator',   'Date': '2025-06-11', 'Time In': '8:00 AM',  'Time Out': '5:00 PM', 'Working Hours': 9,    'Status': 'Present' },
-    { 'Employee Name': 'Pedro Reyes',    'Role': 'Caddy',      'Date': '2025-06-11', 'Time In': '8:05 AM',  'Time Out': '5:00 PM', 'Working Hours': 8.9,  'Status': 'Late'    },
-  ];
-  const ws = XLSX.utils.json_to_sheet(data);
-  ws['!cols'] = [{ wch: 22 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 10 }];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Event DTR');
-  XLSX.writeFile(wb, 'Event_DTR_Template.xlsx');
-  toast('Event DTR template downloaded.', 'success');
 }
 
 // ── REGULAR DTR TEMPLATE ──────────────────
@@ -985,52 +493,9 @@ function matchEmployee(name) {
 //  DTR PREVIEW RENDER
 // ═══════════════════════════════════════════
 
-function renderDtrPreview(type) {
+function renderDtrPreview() {
   const tbody = document.getElementById('dtrPreviewBody');
 
-  if (type === 'event') {
-    tbody.innerHTML = eventDtrRows.map(r => {
-      const emp = matchEmployee(r.name);
-      const tag = emp
-        ? `<span style="color:var(--green);font-size:11px">✓ ${emp.name}</span>`
-        : `<span style="color:var(--red);font-size:11px">✗ No match — add to Employees tab</span>`;
-
-      const presentDays  = r.days.filter(d => /present|late/i.test(d.status));
-      const lateDays     = r.days.filter(d => /late/i.test(d.status));
-      const totalMinLate = r.days.reduce((s, d) => s + (d.minutesLate || 0), 0);
-      const totalDed     = Math.round(totalMinLate * EVENT_RATE_PER_MIN * 100) / 100;
-      const estNet       = Math.max(0, presentDays.length * EVENT_DAY_RATE - totalDed);
-
-      // Per-day breakdown (up to 5 shown)
-      const dayDots = presentDays.slice(0, 8).map(d => {
-        const isLate  = d.minutesLate > 0;
-        const color   = isLate ? 'var(--orange)' : 'var(--green)';
-        const timeStr = d.timeInMin !== null ? formatMinutes(d.timeInMin) : '—';
-        const tip     = `${d.date} · In: ${timeStr}${isLate ? ` · ${d.minutesLate}min late` : ''}`;
-        return `<span title="${tip}" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${color};margin:1px;cursor:help;"></span>`;
-      }).join('');
-
-      return `
-        <tr style="background:rgba(167,139,250,0.03)">
-          <td>
-            <strong>${r.name}</strong>
-            ${r.role ? `<span style="font-size:11px;color:#a78bfa;margin-left:6px">${r.role}</span>` : ''}
-            <br><span style="font-size:11px;display:block;margin-top:2px">${tag}</span>
-            <div style="margin-top:4px">${dayDots}</div>
-          </td>
-          <td class="mono">
-            ${presentDays.length} day${presentDays.length !== 1 ? 's' : ''}
-            ${lateDays.length ? `<br><span style="color:var(--orange);font-size:11px">${lateDays.length} late · ${totalMinLate} min</span>` : ''}
-          </td>
-          <td class="mono" style="color:#a78bfa">₱2,000/day</td>
-          <td class="mono">${presentDays.length > 0 ? peso(estNet) : '—'}</td>
-          <td colspan="5" style="color:var(--text-dim);font-size:12px">— click Compute Payroll —</td>
-        </tr>`;
-    }).join('');
-    return;
-  }
-
-  // Regular preview
   tbody.innerHTML = dtrRows.map(r => {
     const emp = matchEmployee(r.name);
     const tag = emp
@@ -1066,158 +531,69 @@ function renderDtrPreview(type) {
 
 // ═══════════════════════════════════════════
 //  COMPUTE PAYROLL
-//  Merges regular + event rows if both loaded
 // ═══════════════════════════════════════════
 
 function computePayroll() {
   const month = document.getElementById('payMonth').value;
   if (!month)            { toast('Please select a pay month first.', 'error'); return; }
   if (!employees.length) { toast('No active employees. Add employees first.', 'error'); return; }
-
-  const hasRegular = dtrRows.length > 0;
-  const hasEvent   = eventDtrRows.length > 0;
-
-  if (!hasRegular && !hasEvent) {
-    toast('Upload at least one DTR file first.', 'error');
-    return;
-  }
+  if (!dtrRows.length)   { toast('Upload a DTR file first.', 'error'); return; }
 
   computedRows = [];
   let totalGross = 0, totalDed = 0, totalNet = 0, unmatched = 0;
   const tbody = document.getElementById('dtrPreviewBody');
   tbody.innerHTML = '';
 
-  // ── Regular rows ──
-  if (hasRegular) {
-    dtrRows.forEach(r => {
-      const emp = matchEmployee(r.name);
-      if (!emp) {
-        unmatched++;
-        tbody.innerHTML += `
-          <tr style="opacity:.5">
-            <td><strong>${r.name}</strong><br>
-              <span style="color:var(--red);font-size:11px">✗ No match — skipped</span></td>
-            <td>${r.daysPresent} / ${r.workingDays}</td>
-            <td colspan="8" style="color:var(--text-dim)">—</td>
-          </tr>`;
-        return;
-      }
-
-      const c = computePayForEmployee(emp, r.daysPresent, r.workingDays || 1);
-      computedRows.push({ emp, ...c, month, emp_type: 'regular' });
-      totalGross += c.gross;
-      totalDed   += c.totalDed;
-      totalNet   += c.net;
-
-      const empJson = JSON.stringify({
-        name: emp.name, position: emp.position, sss_no: emp.sss_no,
-        philhealth_no: emp.philhealth_no, pagibig_no: emp.pagibig_no,
-        daily_rate: emp.daily_rate,
-      }).replace(/'/g, '&#39;');
-      const rowJson = JSON.stringify({ ...c }).replace(/'/g, '&#39;');
-
+  dtrRows.forEach(r => {
+    const emp = matchEmployee(r.name);
+    if (!emp) {
+      unmatched++;
       tbody.innerHTML += `
-        <tr>
-          <td>
-            <strong>${emp.name}</strong><br>
-            <span style="font-size:11px;color:var(--text-muted)">${emp.position || ''}</span><br>
-            <span style="font-size:10px;color:var(--text-dim)">DTR: ${r.name}</span>
-          </td>
-          <td class="mono">${c.daysPresent} / ${c.workingDays}</td>
-          <td class="mono">${peso(emp.daily_rate)}/day</td>
-          <td class="mono">${peso(c.gross)}</td>
-          <td class="mono" style="color:var(--text-muted)">${peso(c.sss)}</td>
-          <td class="mono" style="color:var(--text-muted)">${peso(c.philhealth)}</td>
-          <td class="mono" style="color:var(--text-muted)">${peso(c.pagibig)}</td>
-          <td class="mono" style="color:var(--text-muted)">${peso(c.tax)}</td>
-          <td class="mono" style="color:var(--accent);font-weight:600">${peso(c.net)}</td>
-          <td>
-            <button class="btn btn-edit" style="font-size:11px;padding:4px 10px"
-              onclick='generatePayslipPDF({...${rowJson}, emp: ${empJson}}, "${month}", "regular")'>
-              Payslip
-            </button>
-          </td>
+        <tr style="opacity:.5">
+          <td><strong>${r.name}</strong><br>
+            <span style="color:var(--red);font-size:11px">✗ No match — skipped</span></td>
+          <td>${r.daysPresent} / ${r.workingDays}</td>
+          <td colspan="8" style="color:var(--text-dim)">—</td>
         </tr>`;
-    });
-  }
-
-  // ── Event rows ──
-  if (hasEvent) {
-    // Separator row
-    if (hasRegular) {
-      tbody.innerHTML += `
-        <tr>
-          <td colspan="10" style="padding:8px 14px;background:rgba(167,139,250,0.06);border-top:1px solid rgba(167,139,250,0.15);border-bottom:1px solid rgba(167,139,250,0.15);">
-            <span style="font-size:10px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:1.2px;color:#a78bfa;">
-              ◆ Event-Based Employees — ₱2,000/day · No gov deductions
-            </span>
-          </td>
-        </tr>`;
+      return;
     }
 
-    eventDtrRows.forEach(r => {
-      const emp = matchEmployee(r.name);
-      if (!emp) {
-        unmatched++;
-        tbody.innerHTML += `
-          <tr style="opacity:.5;background:rgba(167,139,250,0.03)">
-            <td><strong>${r.name}</strong> <span style="font-size:10px;color:#a78bfa">${r.role || ''}</span><br>
-              <span style="color:var(--red);font-size:11px">✗ No match — skipped</span></td>
-            <td colspan="9" style="color:var(--text-dim)">—</td>
-          </tr>`;
-        return;
-      }
+    const c = computePayForEmployee(emp, r.daysPresent, r.workingDays || 1);
+    computedRows.push({ emp, ...c, month, emp_type: 'regular' });
+    totalGross += c.gross;
+    totalDed   += c.totalDed;
+    totalNet   += c.net;
 
-      const c = computeEventPay(r);
-      computedRows.push({ emp, ...c, month, emp_type: 'event', event_role: r.role, event_days: r.days });
-      totalGross += c.gross;
-      totalDed   += c.lateDeduction;
-      totalNet   += c.net;
+    const empJson = JSON.stringify({
+      name: emp.name, position: emp.position, sss_no: emp.sss_no,
+      philhealth_no: emp.philhealth_no, pagibig_no: emp.pagibig_no,
+      daily_rate: emp.daily_rate,
+    }).replace(/'/g, '&#39;');
+    const rowJson = JSON.stringify({ ...c }).replace(/'/g, '&#39;');
 
-      const lateInfo = c.lateDays > 0
-        ? `<span style="color:var(--orange);font-size:11px">Late ded: ${peso(c.lateDeduction)}</span>`
-        : '';
-
-      const empJson = JSON.stringify({
-        name: emp.name, position: r.role || emp.position,
-        sss_no: '', philhealth_no: '', pagibig_no: '',
-        daily_rate: EVENT_DAY_RATE,
-      }).replace(/'/g, '&#39;');
-      const rowJson = JSON.stringify({
-        gross: c.gross, sss: 0, philhealth: 0, pagibig: 0,
-        tax: 0, totalDed: c.lateDeduction, net: c.net,
-        daysPresent: c.totalDays, workingDays: c.totalDays,
-        lateDeduction: c.lateDeduction, lateDays: c.lateDays,
-        event_days: r.days || [],
-      }).replace(/'/g, '&#39;');
-
-      tbody.innerHTML += `
-        <tr style="background:rgba(167,139,250,0.03)">
-          <td>
-            <strong>${emp.name}</strong>
-            ${r.role ? `<span style="font-size:11px;color:#a78bfa;margin-left:6px">${r.role}</span>` : ''}
-            <br>
-            <span style="font-size:10px;color:var(--text-dim)">DTR: ${r.name}</span>
-          </td>
-          <td class="mono">${c.totalDays} day${c.totalDays !== 1 ? 's' : ''}
-            ${c.lateDays ? `<br><span style="color:var(--orange);font-size:10px">${c.lateDays} late</span>` : ''}
-          </td>
-          <td class="mono" style="color:#a78bfa">₱2,000/day</td>
-          <td class="mono">${peso(c.gross)}</td>
-          <td class="mono" style="color:var(--text-dim)">—</td>
-          <td class="mono" style="color:var(--text-dim)">—</td>
-          <td class="mono" style="color:var(--text-dim)">—</td>
-          <td class="mono" style="color:var(--orange)">${c.lateDeduction > 0 ? `- ${peso(c.lateDeduction)}` : '—'}</td>
-          <td class="mono" style="color:var(--accent);font-weight:600">${peso(c.net)}</td>
-          <td>
-            <button class="btn btn-edit" style="font-size:11px;padding:4px 10px"
-              onclick='generatePayslipPDF({...${rowJson}, emp: ${empJson}}, "${month}", "event")'>
-              Payslip
-            </button>
-          </td>
-        </tr>`;
-    });
-  }
+    tbody.innerHTML += `
+      <tr>
+        <td>
+          <strong>${emp.name}</strong><br>
+          <span style="font-size:11px;color:var(--text-muted)">${emp.position || ''}</span><br>
+          <span style="font-size:10px;color:var(--text-dim)">DTR: ${r.name}</span>
+        </td>
+        <td class="mono">${c.daysPresent} / ${c.workingDays}</td>
+        <td class="mono">${peso(emp.daily_rate)}/day</td>
+        <td class="mono">${peso(c.gross)}</td>
+        <td class="mono" style="color:var(--text-muted)">${peso(c.sss)}</td>
+        <td class="mono" style="color:var(--text-muted)">${peso(c.philhealth)}</td>
+        <td class="mono" style="color:var(--text-muted)">${peso(c.pagibig)}</td>
+        <td class="mono" style="color:var(--text-muted)">${peso(c.tax)}</td>
+        <td class="mono" style="color:var(--accent);font-weight:600">${peso(c.net)}</td>
+        <td>
+          <button class="btn btn-edit" style="font-size:11px;padding:4px 10px"
+            onclick='generatePayslipPDF({...${rowJson}, emp: ${empJson}}, "${month}")'>
+            Payslip
+          </button>
+        </td>
+      </tr>`;
+  });
 
   // ── Summary bar ──
   const empCount = document.getElementById('sumEmpCount');
@@ -1232,17 +608,16 @@ function computePayroll() {
 }
 
 // ═══════════════════════════════════════════
-//  PAYSLIP PDF — Regular + Event variants
+//  PAYSLIP PDF
 // ═══════════════════════════════════════════
 
-function generatePayslipPDF(row, month, type = 'regular') {
+function generatePayslipPDF(row, month) {
   const { jsPDF } = window.jspdf;
   const doc  = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const emp  = row.emp;
   const W    = 210;
   const pad  = 20;
-
-  const accent = type === 'event' ? [167, 139, 250] : [59, 130, 246];
+  const accent = [59, 130, 246];
   const dark   = [8, 12, 20];
 
   // ── Header bar ──
@@ -1257,7 +632,7 @@ function generatePayslipPDF(row, month, type = 'regular') {
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(180, 180, 180);
-  doc.text(type === 'event' ? 'EVENT PAYSLIP' : 'PAYSLIP', pad, 20);
+  doc.text('PAYSLIP', pad, 20);
 
   const [yr, mo] = month.split('-');
   const monthName = new Date(yr, mo - 1).toLocaleString('en-PH', { month: 'long', year: 'numeric' });
@@ -1281,16 +656,11 @@ function generatePayslipPDF(row, month, type = 'regular') {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(80, 80, 80);
-  doc.text(emp.position || (type === 'event' ? 'Event Staff' : 'Employee'), pad + 6, y + 16);
+  doc.text(emp.position || 'Employee', pad + 6, y + 16);
 
   doc.setFontSize(8);
-  if (type === 'event') {
-    doc.text(`Rate: ₱2,000/day (fixed)`, pad + 6, y + 23);
-    doc.text(`Days: ${row.daysPresent}${row.lateDays ? ` (${row.lateDays} late)` : ''}`, pad + 80, y + 23);
-  } else {
-    doc.text(`Daily Rate: ${peso(emp.daily_rate)}`, pad + 6, y + 23);
-    doc.text(`Days Present: ${row.daysPresent} / ${row.workingDays}`, pad + 80, y + 23);
-  }
+  doc.text(`Daily Rate: ${peso(emp.daily_rate)}`, pad + 6, y + 23);
+  doc.text(`Days Present: ${row.daysPresent} / ${row.workingDays}`, pad + 80, y + 23);
 
   // ── Earnings ──
   y += 36;
@@ -1306,7 +676,7 @@ function generatePayslipPDF(row, month, type = 'regular') {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
   doc.setTextColor(...dark);
-  doc.text(type === 'event' ? `Basic Pay (${row.daysPresent} × ₱2,000)` : 'Basic Pay', pad, y);
+  doc.text('Basic Pay', pad, y);
   doc.text(peso(row.gross), W - pad, y, { align: 'right' });
 
   // ── Deductions ──
@@ -1322,50 +692,17 @@ function generatePayslipPDF(row, month, type = 'regular') {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
   doc.setTextColor(...dark);
-
-  if (type === 'event') {
-    if (row.lateDeduction > 0) {
-      const totalMinLate = Math.round(row.lateDeduction / EVENT_RATE_PER_MIN);
-      doc.text(`Late Deduction (${totalMinLate} min × ₱${EVENT_RATE_PER_MIN.toFixed(4)}/min)`, pad, y);
-      doc.text(peso(row.lateDeduction), W - pad, y, { align: 'right' });
-      y += 8;
-      // Show per-day breakdown if available
-      if (row.event_days && row.event_days.length > 0) {
-        const lateDaysList = row.event_days.filter(d => (d.minutesLate || 0) > 0);
-        lateDaysList.forEach(d => {
-          doc.setFontSize(8);
-          doc.setTextColor(120, 120, 120);
-          const timeStr = d.timeInMin !== null ? formatMinutes(d.timeInMin) : '—';
-          const shiftStr = formatMinutes(d.shiftStartMin || 480);
-          doc.text(
-            `  ${d.date}  In: ${timeStr}  (shift: ${shiftStr}) — ${d.minutesLate} min late`,
-            pad + 4, y
-          );
-          doc.text(`-${peso(Math.round(d.minutesLate * EVENT_RATE_PER_MIN * 100) / 100)}`, W - pad, y, { align: 'right' });
-          y += 6;
-        });
-        doc.setFontSize(10);
-        doc.setTextColor(...dark);
-      }
-    } else {
-      doc.setTextColor(160, 160, 160);
-      doc.text('No deductions — no late arrivals', pad, y);
-      y += 8;
-    }
-  } else {
-    const deductions = [
-      ['SSS Contribution',        peso(row.sss)],
-      ['PhilHealth Contribution',  peso(row.philhealth)],
-      ['Pag-IBIG Contribution',    peso(row.pagibig)],
-      ['Withholding Tax',          peso(row.tax)],
-    ];
-    deductions.forEach(([label, val]) => {
-      doc.setTextColor(...dark);
-      doc.text(label, pad, y);
-      doc.text(val, W - pad, y, { align: 'right' });
-      y += 8;
-    });
-  }
+  const deductions = [
+    ['SSS Contribution',        peso(row.sss)],
+    ['PhilHealth Contribution',  peso(row.philhealth)],
+    ['Pag-IBIG Contribution',    peso(row.pagibig)],
+    ['Withholding Tax',          peso(row.tax)],
+  ];
+  deductions.forEach(([label, val]) => {
+    doc.text(label, pad, y);
+    doc.text(val, W - pad, y, { align: 'right' });
+    y += 8;
+  });
 
   // Total deductions
   y += 2;
@@ -1374,7 +711,6 @@ function generatePayslipPDF(row, month, type = 'regular') {
   y += 6;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
-  doc.setTextColor(...dark);
   doc.text('Total Deductions', pad, y);
   doc.text(peso(row.totalDed), W - pad, y, { align: 'right' });
 
@@ -1389,17 +725,15 @@ function generatePayslipPDF(row, month, type = 'regular') {
   doc.setFontSize(14);
   doc.text(peso(row.net), W - pad - 6, y + 11, { align: 'right' });
 
-  // ── Gov numbers (regular only) ──
-  if (type === 'regular') {
-    y += 28;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(120, 120, 120);
-    doc.text(`SSS: ${emp.sss_no || '—'}    PhilHealth: ${emp.philhealth_no || '—'}    Pag-IBIG: ${emp.pagibig_no || '—'}`, pad, y);
-  }
+  // ── Gov numbers ──
+  y += 28;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(120, 120, 120);
+  doc.text(`SSS: ${emp.sss_no || '—'}    PhilHealth: ${emp.philhealth_no || '—'}    Pag-IBIG: ${emp.pagibig_no || '—'}`, pad, y);
 
   // ── Signature lines ──
-  y += type === 'regular' ? 20 : 36;
+  y += 20;
   doc.setDrawColor(80, 80, 80);
   doc.line(pad, y, pad + 60, y);
   doc.line(W - pad - 60, y, W - pad, y);
@@ -1414,8 +748,7 @@ function generatePayslipPDF(row, month, type = 'regular') {
   doc.setTextColor(160, 160, 160);
   doc.text('This is a system-generated payslip. No signature required for digital copies.', W / 2, 285, { align: 'center' });
 
-  const filename = `Payslip_${type === 'event' ? 'Event_' : ''}${emp.name.replace(/\s+/g, '_')}_${month}.pdf`;
-  doc.save(filename);
+  doc.save(`Payslip_${emp.name.replace(/\s+/g, '_')}_${month}.pdf`);
 }
 
 // ── SAVE & GENERATE ALL PAYSLIPS ──────────
@@ -1435,15 +768,11 @@ async function saveAndGeneratePayslips() {
     const totalDed   = computedRows.reduce((s, r) => s + r.totalDed, 0);
     const totalNet   = computedRows.reduce((s, r) => s + r.net, 0);
 
-    const hasRegular = computedRows.some(r => r.emp_type !== 'event');
-    const hasEvent   = computedRows.some(r => r.emp_type === 'event');
-    const typeLabel  = hasRegular && hasEvent ? 'mixed' : hasEvent ? 'event' : 'regular';
-
     const period = {
       id:               periodId,
       month,
       label,
-      pay_type:         typeLabel,
+      pay_type:         'regular',
       tax_mode:         taxMode,
       employee_count:   computedRows.length,
       total_gross:      totalGross,
@@ -1458,10 +787,10 @@ async function saveAndGeneratePayslips() {
       period_id:     periodId,
       employee_id:   r.emp.id,
       employee_name: r.emp.name,
-      emp_type:      r.emp_type || 'regular',
-      event_name:    r.event_role || null,
-      days_present:  r.daysPresent ?? r.totalDays ?? 0,
-      working_days:  r.workingDays ?? r.totalDays ?? 0,
+      emp_type:      'regular',
+      event_name:    null,
+      days_present:  r.daysPresent,
+      working_days:  r.workingDays,
       gross_pay:     r.gross,
       sss:           r.sss,
       philhealth:    r.philhealth,
@@ -1473,14 +802,10 @@ async function saveAndGeneratePayslips() {
     await sbPost(RECORD_URL, records);
     toast('Payroll saved. Generating payslips…', 'success');
 
-    computedRows.forEach(r => {
-      const type = r.emp_type === 'event' ? 'event' : 'regular';
-      generatePayslipPDF(r, month, type);
-    });
+    computedRows.forEach(r => generatePayslipPDF(r, month));
 
     // Reset
     dtrRows      = [];
-    eventDtrRows = [];
     computedRows = [];
     document.getElementById('dtrPreview').style.display        = 'none';
     document.getElementById('payrollSummaryBar').style.display = 'none';
@@ -1528,12 +853,6 @@ function renderHistory() {
     const label    = p.label || new Date(yr, mo - 1).toLocaleString('en-PH', { month: 'long', year: 'numeric' });
     const created  = new Date(p.created_at).toLocaleDateString('en-PH');
 
-    const typeTag = p.pay_type === 'event'
-      ? `<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(167,139,250,0.1);color:#a78bfa;border:1px solid rgba(167,139,250,0.2);font-family:'JetBrains Mono',monospace;">EVENT</span>`
-      : p.pay_type === 'mixed'
-      ? `<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(251,191,36,0.08);color:var(--yellow);border:1px solid rgba(251,191,36,0.18);font-family:'JetBrains Mono',monospace;">MIXED</span>`
-      : `<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(52,211,153,0.08);color:var(--green);border:1px solid rgba(52,211,153,0.15);font-family:'JetBrains Mono',monospace;">REGULAR</span>`;
-
     const taxTag = p.tax_mode === 'flat'
       ? `<span style="font-size:10px;color:var(--yellow);font-family:'JetBrains Mono',monospace;">Flat</span>`
       : `<span style="font-size:10px;color:var(--accent-bright);font-family:'JetBrains Mono',monospace;">BIR 2025</span>`;
@@ -1541,7 +860,7 @@ function renderHistory() {
     return `
       <tr>
         <td class="history-period">${label}</td>
-        <td>${typeTag}</td>
+        <td><span style="font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(52,211,153,0.08);color:var(--green);border:1px solid rgba(52,211,153,0.15);font-family:'JetBrains Mono',monospace;">REGULAR</span></td>
         <td>${taxTag}</td>
         <td class="mono">${p.employee_count}</td>
         <td class="mono">${peso(p.total_gross)}</td>
@@ -1563,36 +882,28 @@ async function viewPeriodRecords(periodId, month) {
     const label = new Date(yr, mo - 1).toLocaleString('en-PH', { month: 'long', year: 'numeric' });
     if (!confirm(`Re-download ${records.length} payslip${records.length !== 1 ? 's' : ''} for ${label}?`)) return;
 
-    // Find the period to get tax_mode
-    const period = payrollHistory.find(p => p.id === periodId);
-    const savedTaxMode = period?.tax_mode || 'bir';
-
     records.forEach(r => {
       const totalDed = (r.sss || 0) + (r.philhealth || 0) + (r.pagibig || 0) + (r.tax || 0);
-      const empType  = r.emp_type || 'regular';
-
       const row = {
-        gross:         r.gross_pay,
-        sss:           r.sss,
-        philhealth:    r.philhealth,
-        pagibig:       r.pagibig,
-        tax:           r.tax,
+        gross:       r.gross_pay,
+        sss:         r.sss,
+        philhealth:  r.philhealth,
+        pagibig:     r.pagibig,
+        tax:         r.tax,
         totalDed,
-        lateDeduction: totalDed, // for event type, totalDed IS the late deduction
-        net:           r.net_pay,
-        daysPresent:   r.days_present,
-        workingDays:   r.working_days,
-        lateDays:      0,
+        net:         r.net_pay,
+        daysPresent: r.days_present,
+        workingDays: r.working_days,
         emp: {
           name:          r.employee_name,
           position:      r.event_name || '',
-          daily_rate:    empType === 'event' ? EVENT_DAY_RATE : (r.gross_pay / (r.days_present || 1)),
+          daily_rate:    r.gross_pay / (r.days_present || 1),
           sss_no:        '',
           philhealth_no: '',
           pagibig_no:    '',
         },
       };
-      generatePayslipPDF(row, month, empType);
+      generatePayslipPDF(row, month);
     });
   } catch (err) {
     console.error(err);
@@ -1657,7 +968,7 @@ async function loadLiveDtr() {
       return;
     }
 
-    renderDtrPreview('regular');
+    renderDtrPreview();
     document.getElementById('dtrPreview').style.display = 'block';
 
     const msg = unmatchedIds.length
@@ -1704,8 +1015,6 @@ document.addEventListener('DOMContentLoaded', async function () {
   document.getElementById('payMonth').value =
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-  // Initialize tax mode display
   setTaxMode('bir');
-
   await loadEmployees();
 });
