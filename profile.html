@@ -494,7 +494,7 @@
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       Personal Info
     </button>
-    <button class="ptab-link" onclick="switchTab('dtr', this)">
+    <button class="ptab-link" id="dtrTabBtn" onclick="switchTab('dtr', this)" style="display:none">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       Attendance
     </button>
@@ -813,6 +813,14 @@ function switchTab(name, btn) {
   if (name === 'dtr') loadDtrLogs();
 }
 
+// ── REGULAR EMPLOYEE WHITELIST ──────────────────────────────────────────────
+// Only these employee IDs see the Attendance (DTR) tab in their profile.
+// Event-based employees use the Game Schedule clock-in instead.
+// Add more IDs here as regular employees are onboarded.
+const REGULAR_EMPLOYEE_IDS = [
+  'KMO013',
+];
+
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', async () => {
   session = AUTH.requireAuth();
@@ -846,15 +854,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   populateAll();
   initClock();
 
+  // ── Show Attendance tab only for whitelisted regular employees ──────────────
+  // Event-based employees use Game Schedule clock-in instead.
+  const canSeeDtr = REGULAR_EMPLOYEE_IDS.includes(session.username);
+  const dtrTabBtn = document.getElementById('dtrTabBtn');
+  if (dtrTabBtn && canSeeDtr) dtrTabBtn.style.display = '';
+
   // ── Auto-switch tab from query param ──────────────────────────────────────
   const urlParams = new URLSearchParams(window.location.search);
   const tabParam  = urlParams.get('tab');
-  if (tabParam === 'dtr') {
-    // Switch to Attendance tab programmatically
-    const dtrTabBtn = document.querySelector('.ptab-link[onclick*="dtr"]');
-    if (dtrTabBtn) {
-      switchTab('dtr', dtrTabBtn);
-    }
+  if (tabParam === 'dtr' && canSeeDtr && dtrTabBtn) {
+    switchTab('dtr', dtrTabBtn);
   }
 });
 
