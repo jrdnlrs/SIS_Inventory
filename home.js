@@ -46,6 +46,11 @@ function formatDate() {
   });
 }
 
+// REGULAR EMPLOYEE WHITELIST
+const REGULAR_EMPLOYEE_IDS = [
+  'KMO013',
+];
+
 // ── TOAST ──────────────────────────────────
 function toast(msg, type = 'info') {
   const icon = type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ';
@@ -122,48 +127,21 @@ async function loadAdminStats() {
 //  EMPLOYEE VIEW
 // ═══════════════════════════════════════════
 
-// async function loadEmployeeData(displayName) {
-//   // Always show the punch CTA immediately — default "Not yet timed in" state.
-//   // Ensures every user sees the button regardless of whether they have
-//   // a matching employee record in Supabase yet.
-//   const ctaEl  = document.getElementById('empPunchCta');
-//   const ctaBtn = document.getElementById('empPunchCtaBtn');
-//   if (ctaEl) {
-//     ctaEl.style.display = 'block';
-//     if (ctaBtn) ctaBtn.href = 'profile.html?tab=dtr';
-//   }
-
-//   setLoading(true);
-//   try {
-//     // Try to find the employee record by matching display name
-//     const employees = await dbGet(
-//       `${SUPABASE_URL}/rest/v1/employees?select=id,name&name=ilike.${encodeURIComponent('%' + displayName + '%')}`
-//     );
-
-//     const emp = employees[0] || null;
-
-//     if (emp) {
-//       await Promise.all([
-//         loadEmpPayslips(emp.id, emp.name),
-//         loadEmpDtr(emp.id, emp.name),
-//       ]);
-//     } else {
-//       // Employee not yet in payroll roster — show empty state but CTA stays visible
-//       document.getElementById('empPayslipList').innerHTML = emptyState('No payslip records found yet.');
-//     }
-//   } catch (err) {
-//     console.error(err);
-//     document.getElementById('empPayslipList').innerHTML = emptyState('Could not load payslips.');
-//   } finally {
-//     setLoading(false);
-//   }
-// }
-
 // Change the parameter from displayName to session
 async function loadEmployeeData(session) {
+  const canSeeDtr = REGULAR_EMPLOYEE_IDS.includes(session.username);
+
+  // Hide the entire DTR card if not whitelisted
+  const empDtrCard = document.getElementById('empAttendanceCard');
+  if (empDtrCard) {
+    empDtrCard.style.display = canSeeDtr ? 'block' : 'none';
+  }
+
   const ctaEl  = document.getElementById('empPunchCta');
   const ctaBtn = document.getElementById('empPunchCtaBtn');
-  if (ctaEl) {
+
+  // Only display the CTA block if the user is a whitelisted regular employee
+  if (ctaEl && canSeeDtr) {
     ctaEl.style.display = 'block';
     if (ctaBtn) ctaBtn.href = 'profile.html?tab=dtr';
   }
@@ -187,6 +165,12 @@ async function loadEmployeeData(session) {
         const hero = document.getElementById('empHeroName');
         if (chip) chip.textContent = emp.name;
         if (hero) hero.textContent = emp.name;
+      }
+
+      // Build data fetching tasks based on whiteliste
+      const fetchTasks = [loadEmpPayslips(emp.id, emp.name)];
+      if (canSeeDtr) {
+        fetchTasks.push(loadEmpDtr(emp.id, emp.name));
       }
 
       await Promise.all([
@@ -324,6 +308,18 @@ function emptyState(msg) {
 // ═══════════════════════════════════════════
 
 async function loadAdminAttendance(session) {
+  // 1. Check if user is in the whitelist
+  const canSeeDtr = REGULAR_EMPLOYEE_IDS.includes(session.username);
+  const cardContainer = document.getElementById('adminAttendanceCard');
+
+  if (!canSeeDtr) {
+    if (cardContainer) cardContainer.style.display = 'none';
+    return; // Exit early to save database calls
+  }
+
+  // Show the card if whitelisted
+  if (cardContainer) cardContainer.style.display = 'block';
+
   const DTR_URL = `${SUPABASE_URL}/rest/v1/dtr_logs`;
   const EMP_URL = `${SUPABASE_URL}/rest/v1/employees`;
 
