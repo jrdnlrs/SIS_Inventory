@@ -39,6 +39,13 @@
       "active": true
     },
     {
+      "username": "VPD008",
+      "display_name": "Perry Divino",
+      "password_hash": "7709517cdbf44ab810cbdbeb8868ce6292cdfac8768c1bc9b895ae8151f5ba1f",
+      "role": "employee",
+      "active": true
+    },
+    {
       "username": "EJL012",
       "display_name": "Elijah Lirios",
       "password_hash": "1084285cbe681fb7c2e2a6409320ded4da8b6d5a2d180179a4c2befaf546f157",
@@ -189,6 +196,13 @@
       "username": "VL033",
       "display_name": "Vera Landicho",
       "password_hash": "75a9d002cdc531a1682c488ad3e22186129938749dc2e839c9e535cfb67da8e6",
+      "role": "employee",
+      "active": true
+    },
+    {
+      "username": "JV034",
+      "display_name": "Joemar Valencia",
+      "password_hash": "b008cff00f8cd707d2c1ad5e31c9464a62fa9508d8aa42ea0bc4336343050c6b",
       "role": "employee",
       "active": true
     }
