@@ -205,6 +205,32 @@
       "password_hash": "b008cff00f8cd707d2c1ad5e31c9464a62fa9508d8aa42ea0bc4336343050c6b",
       "role": "employee",
       "active": true
+    },
+        {
+      "username": "VLD035",
+      "display_name": "Vince Landicho",
+      "password_hash": "bc7467473a2cefc4f6cacf864d71c3680700bf2230dd5ce2b95c21a567f91276",
+      "role": "employee",
+      "active": true
+    },    
+    {
+      "username": "JB036",
+      "display_name": "Jericho Balanza",
+      "password_hash": "b8db8aa896f59822c429a8320848edcbc0f51ca103f38b960ee557672702ead2",
+      "role": "employee",
+      "active": true
+    },    {
+      "username": "RGP037",
+      "display_name": "Regine Pernito",
+      "password_hash": "68a886030fd95c00bf5e33aab9e3ef0ce38f86be18f22b1df7eb76d89f7e249b",
+      "role": "employee",
+      "active": true
+    },    {
+      "username": "RA038",
+      "display_name": "Richel Adriano",
+      "password_hash": "160d51e55af9161c63887cf538287a20494c5b3ea6fab741e6f7175ce4e5e669",
+      "role": "employee",
+      "active": true
     }
   ]
 }
